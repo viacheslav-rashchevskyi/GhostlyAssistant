@@ -19,6 +19,7 @@ public actor KnowledgeStore: KnowledgeProviding {
     private var mode = KBMode.none
     private var blocks: [ContentBlock] = []
     private var documents: [KBDocument] = []
+    private var index = BM25Index(documents: [])
     /// file_id per PDF, keyed by path and modification date, so re-reading doesn't re-upload.
     private var uploaded: [String: String] = [:]
 
@@ -39,6 +40,7 @@ public actor KnowledgeStore: KnowledgeProviding {
         blocks = await inlineBlocks(documents)
         let tokens = (try? await api.countTokens(RequestBuilder.countTokens(kb: blocks))) ?? Int.max
         mode = tokens > threshold ? .search : .inline
+        index = mode == .search ? BM25Index(documents: documents) : BM25Index(documents: [])
         return (mode, tokens == Int.max ? 0 : tokens, skipped)
     }
 
@@ -56,11 +58,12 @@ public actor KnowledgeStore: KnowledgeProviding {
     }
 
     public func tools() -> [ToolDefinition] {
-        []
+        mode == .search ? KBTools.definitions : []
     }
 
     public func execute(tool: String, input: JSONValue) async -> [ContentBlock] {
-        [.text("Knowledge base is already in context.")]
+        guard mode == .search else { return [.text("Knowledge base is already in context.")] }
+        return KBTools.run(name: tool, input: input, index: index, documents: documents)
     }
 
     /// Images first and documents last, so the block carrying the cache marker is text or a document.
