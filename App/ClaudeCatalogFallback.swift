@@ -15,6 +15,9 @@ enum ClaudeCatalogFallback {
         ("claude-haiku-4-5", "Claude Haiku 4.5")
     ].map { ClaudeModelInfo(id: $0.0, displayName: $0.1, createdAt: nil) }
 
+    /// Best suited to answering live: fast first, then smarter.
+    static let top = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
+
     /// A short Russian note on what the model is good for in a live call.
     static func note(for id: String) -> String {
         if id.contains("fable") || id.contains("mythos") { return L("Самая мощная — долго думает, для звонка медленная") }

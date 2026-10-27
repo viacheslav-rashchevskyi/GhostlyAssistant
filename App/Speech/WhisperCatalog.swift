@@ -16,6 +16,8 @@ struct WhisperModelInfo: Identifiable, Equatable {
 
 enum WhisperCatalog {
     static let recommended = "large-v3-v20240930_626MB"
+    /// Best suited to a live call: the recommended Turbo, a more accurate one, and a light one.
+    static let top = [recommended, "large-v3_947MB", "small_216MB"]
 
     static let models: [WhisperModelInfo] = [
         WhisperModelInfo(variant: "tiny", title: "Tiny", sizeMB: 77, note: L("Мгновенно, но часто ошибается")),

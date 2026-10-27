@@ -208,8 +208,9 @@ private struct ClaudeModelCard: View {
     var body: some View {
         SettingsCard(icon: "sparkles", tint: .orange, title: L("Модель Claude"),
                      subtitle: L("Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход")) {
-            VStack(spacing: 6) {
-                ForEach(model.claudeModels) { info in
+            CollapsibleList(items: model.claudeModels, isTop: { info in
+                ClaudeCatalogFallback.top.contains(info.id) || info.model == model.claudeModel
+            }, order: { info in ClaudeCatalogFallback.top.firstIndex(of: info.id) ?? Int.max }) { info in
                     SelectableRow(selected: model.claudeModel == info.model) {
                         withAnimation(.smooth) { model.claudeModel = info.model }
                     } content: {
@@ -225,9 +226,7 @@ private struct ClaudeModelCard: View {
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
-                }
             }
-            .animation(.smooth, value: model.claudeModels)
             HStack(spacing: 8) {
                 if model.claudeModelsLoading {
                     ProgressView().controlSize(.small)
@@ -253,6 +252,46 @@ private struct ClaudeModelCard: View {
             .foregroundStyle(.secondary)
         }
         .task { await model.refreshClaudeModels() }
+    }
+}
+
+/// The best few options up front; the full list unfolds on demand.
+private struct CollapsibleList<Item: Identifiable & Equatable, Row: View>: View {
+    let items: [Item]
+    let isTop: (Item) -> Bool
+    let order: (Item) -> Int
+    @ViewBuilder let row: (Item) -> Row
+    @State private var expanded = false
+
+    private var top: [Item] { items.filter(isTop).sorted { order($0) < order($1) } }
+    private var rest: [Item] { items.filter { !isTop($0) } }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ForEach(top) { row($0) }
+            if expanded {
+                ForEach(rest) { row($0) }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            if !rest.isEmpty {
+                Button {
+                    withAnimation(.spring(duration: 0.35, bounce: 0.15)) { expanded.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(expanded ? L("Свернуть") : L("Все модели (%d)", items.count))
+                        Image(systemName: "chevron.down")
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .clipped()
     }
 }
 
@@ -311,10 +350,10 @@ private struct WhisperModelCard: View {
     var body: some View {
         SettingsCard(icon: "cpu", tint: .indigo, title: L("Модель распознавания"),
                      subtitle: L("Версия Whisper. Крупнее — точнее, но медленнее")) {
-            VStack(spacing: 6) {
-                ForEach(WhisperCatalog.models) { info in
-                    WhisperRow(info: info, model: model)
-                }
+            CollapsibleList(items: WhisperCatalog.models, isTop: { info in
+                WhisperCatalog.top.contains(info.variant) || info.variant == model.whisperVariant
+            }, order: { info in WhisperCatalog.top.firstIndex(of: info.variant) ?? Int.max }) { info in
+                WhisperRow(info: info, model: model)
             }
             if let error = model.whisperError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")

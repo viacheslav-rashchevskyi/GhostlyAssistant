@@ -95,6 +95,8 @@ enum Loc {
         "Список из API, цены с anthropic.com": "Models from the API, prices from anthropic.com",
         "Нет связи с API — показаны известные модели": "API unreachable — showing known models",
         "Обновить": "Refresh",
+        "Свернуть": "Collapse",
+        "Все модели (%d)": "All models (%d)",
         "Распознавание речи": "Speech recognition",
         "Whisper работает на Mac, без интернета": "Whisper runs on your Mac, offline",
         "Собеседники в звонке": "People on the call",
