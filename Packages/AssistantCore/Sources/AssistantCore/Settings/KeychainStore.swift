@@ -4,7 +4,7 @@ import Security
 public struct KeychainStore: Sendable {
     private let service: String
 
-    public init(service: String = "local.zoomassistant.app") {
+    public init(service: String = "local.ghostlyassistant.app") {
         self.service = service
     }
 

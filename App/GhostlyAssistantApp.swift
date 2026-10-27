@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 
 @main
-struct ZoomAssistantApp: App {
+struct GhostlyAssistantApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Асистент", systemImage: "waveform") {
-            Button("Показати / сховати картку") { appDelegate.toggleCard() }
-            Button("Налаштування…") { appDelegate.openSettings() }
+        MenuBarExtra("GhostlyAssistant", systemImage: "waveform") {
+            Button("Показать / скрыть карточку") { appDelegate.toggleCard() }
+            Button("Настройки…") { appDelegate.openSettings() }
             Divider()
-            Button("Вийти") { NSApp.terminate(nil) }
+            Button("Выйти") { NSApp.terminate(nil) }
         }
     }
 }
@@ -29,7 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings = SettingsWindowController(model: model)
         let card = CardView(model: model) { [weak self] in self?.openSettings() }
-        let panel = CardPanel(contentView: NSHostingView(rootView: card))
+        let host = NSHostingView(rootView: card)
+        host.sizingOptions = [.minSize] // the user sizes the card; content fills it
+        let panel = CardPanel(contentView: host)
         panel.orderFrontRegardless()
         self.panel = panel
         hotKey = HotKey.toggleCard { [weak self] in self?.toggleCard() }

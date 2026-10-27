@@ -30,7 +30,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var status: CardStatus = .ready
     @Published var isCardVisible = true
 
-    private static let log = Logger(subsystem: "local.zoomassistant.app", category: "app")
+    private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
     private let keychain = KeychainStore()
     private let capture = SystemAudioCapture()
     private let whisper = WhisperTranscriber()
@@ -41,6 +41,7 @@ final class AppModel: ObservableObject {
     var hasAPIKey: Bool { !(keychain.read(Self.apiKeyAccount) ?? "").isEmpty }
 
     func start() async {
+        migrateKeyFromOldName()
         guard let key = keychain.read(Self.apiKeyAccount), !key.isEmpty else {
             status = .needsKey
             return
@@ -75,7 +76,7 @@ final class AppModel: ObservableObject {
             status = .ready
         } catch {
             Self.log.error("start failed: \(error.localizedDescription, privacy: .public)")
-            status = .error("Не вдалося запустити: \(error.localizedDescription)")
+            status = .error("Не удалось запустить: \(error.localizedDescription)")
         }
     }
 
@@ -132,6 +133,14 @@ final class AppModel: ObservableObject {
             }
         }
         if answers.count > Self.maxAnswers { answers.removeFirst(answers.count - Self.maxAnswers) }
+    }
+
+    /// The app was first built as "ZoomAssistant"; carry a key saved under that name over once.
+    private func migrateKeyFromOldName() {
+        let old = KeychainStore(service: "local.zoomassistant.app")
+        guard !hasAPIKey, let key = old.read(Self.apiKeyAccount) else { return }
+        guard (try? keychain.write(key, account: Self.apiKeyAccount)) != nil else { return }
+        old.delete(Self.apiKeyAccount)
     }
 
     private func index(_ id: UUID) -> Int? {

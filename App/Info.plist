@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>uk</string>
+	<string>ru</string>
 	<key>CFBundleDisplayName</key>
-	<string>Асистент</string>
+	<string>GhostlyAssistant</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,8 +25,8 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Асистент слухає системний звук, щоб розпізнавати питання співрозмовників.</string>
+	<string>GhostlyAssistant слушает системный звук, чтобы распознавать вопросы собеседников.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Асистент розпізнає мовлення співрозмовників.</string>
+	<string>GhostlyAssistant распознаёт речь собеседников.</string>
 </dict>
 </plist>

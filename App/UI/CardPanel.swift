@@ -1,11 +1,11 @@
 import AppKit
 
-/// Floating card that stays above other windows and is excluded from screen capture where macOS allows it.
+/// Floating, resizable card that stays above other windows and is excluded from screen capture where macOS allows it.
 final class CardPanel: NSPanel {
     init(contentView: NSView) {
         super.init(
             contentRect: Self.defaultFrame(),
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled],
+            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -23,14 +23,20 @@ final class CardPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         hidesOnDeactivate = false
+        minSize = NSSize(width: 260, height: 120)
         self.contentView = contentView
         setFrameAutosaveName("AssistantCard")
     }
 
     override var canBecomeKey: Bool { true }
 
+    /// No clamping to the visible area: the card may sit over the menu bar, the Dock or straddle displays.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
     private static func defaultFrame() -> NSRect {
-        let size = NSSize(width: 360, height: 220)
+        let size = NSSize(width: 360, height: 260)
         guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
         return NSRect(
             x: visible.maxX - size.width - 16,

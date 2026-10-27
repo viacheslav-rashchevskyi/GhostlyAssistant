@@ -2,6 +2,7 @@ import AssistantCore
 import SwiftUI
 
 /// The floating Liquid Glass card: status line, latest question and answer, collapsed history, input field.
+/// Fills the panel, so the user sizes it by resizing the window.
 struct CardView: View {
     @ObservedObject var model: AppModel
     let openSettings: () -> Void
@@ -13,7 +14,8 @@ struct CardView: View {
         VStack(alignment: .leading, spacing: 8) {
             header
             content
-            TextField("Спитати самому…", text: $typed)
+                .frame(maxHeight: .infinity, alignment: .top)
+            TextField("Спросить самому…", text: $typed)
                 .textFieldStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -23,41 +25,43 @@ struct CardView: View {
                 }
         }
         .padding(12)
-        .frame(width: 360, alignment: .leading)
-        .frame(maxHeight: 420, alignment: .top)
+        .frame(minWidth: 260, maxWidth: .infinity, minHeight: 120, maxHeight: .infinity, alignment: .topLeading)
         .glassEffect(.regular.tint(.black.opacity(0.25)), in: .rect(cornerRadius: 18))
         .environment(\.colorScheme, .dark)
     }
 
     private var latest: CardAnswer? { model.answers.last }
 
+    /// Also the drag handle: text selection in the answer would otherwise swallow window drags.
     private var header: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(model.audioPresent ? Color.red : Color.gray)
                 .frame(width: 7, height: 7)
-            Text(model.audioPresent ? "Слухаю" : "Очікую звук")
+            Text(model.audioPresent ? "Слушаю" : "Жду звук")
             Spacer()
             if latest?.lookingUpKB == true {
-                Text("шукаю в базі…")
+                Text("ищу в базе…")
             } else if let latency = latest?.latency {
                 Text(latency.label).monospacedDigit()
             }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
+        .contentShape(Rectangle())
+        .gesture(WindowDragGesture())
     }
 
     @ViewBuilder
     private var content: some View {
         switch model.status {
         case .needsKey:
-            notice("Додайте ключ у налаштуваннях", button: "Відкрити налаштування", action: openSettings)
+            notice("Добавьте ключ в настройках", button: "Открыть настройки", action: openSettings)
         case .needsPermission:
-            notice("Немає дозволу на запис екрана. Після надання дозволу перезапустіть застосунок.",
-                   button: "Відкрити налаштування", action: ScreenPermission.openSettings)
+            notice("Нет разрешения на запись экрана. После выдачи разрешения перезапустите приложение.",
+                   button: "Открыть настройки", action: ScreenPermission.openSettings)
         case .downloadingModel(let p):
-            notice("Завантаження моделі розпізнавання… \(Int(p * 100))%")
+            notice("Загрузка модели распознавания… \(Int(p * 100))%")
         case .error(let message):
             notice(message)
         case .ready:
@@ -71,7 +75,7 @@ struct CardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if !earlier.isEmpty {
-                    Button(showHistory ? "↓ сховати попередні" : UkrainianPlural.previousAnswers(earlier.count)) {
+                    Button(showHistory ? "↓ скрыть предыдущие" : RussianPlural.previousAnswers(earlier.count)) {
                         showHistory.toggle()
                     }
                     .buttonStyle(.plain)
@@ -89,8 +93,7 @@ struct CardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.never)
-        .frame(maxHeight: 340)
-        .fixedSize(horizontal: false, vertical: true)
+        .defaultScrollAnchor(.bottom)
     }
 
     private func notice(_ text: String, button: String? = nil, action: (() -> Void)? = nil) -> some View {

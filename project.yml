@@ -1,6 +1,6 @@
-name: ZoomAssistant
+name: GhostlyAssistant
 options:
-  bundleIdPrefix: local.zoomassistant
+  bundleIdPrefix: local.ghostlyassistant
   deploymentTarget:
     macOS: "26.0"
 packages:
@@ -10,7 +10,7 @@ packages:
     url: https://github.com/argmaxinc/argmax-oss-swift
     from: 1.1.1
 targets:
-  ZoomAssistant:
+  GhostlyAssistant:
     type: application
     platform: macOS
     sources: [App]
@@ -20,10 +20,10 @@ targets:
         product: WhisperKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: local.zoomassistant.app
-        PRODUCT_NAME: ZoomAssistant
+        PRODUCT_BUNDLE_IDENTIFIER: local.ghostlyassistant.app
+        PRODUCT_NAME: GhostlyAssistant
         INFOPLIST_FILE: App/Info.plist
-        CODE_SIGN_ENTITLEMENTS: App/ZoomAssistant.entitlements
+        CODE_SIGN_ENTITLEMENTS: App/GhostlyAssistant.entitlements
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         ENABLE_APP_SANDBOX: NO

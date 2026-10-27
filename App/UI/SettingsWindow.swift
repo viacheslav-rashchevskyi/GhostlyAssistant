@@ -19,7 +19,7 @@ final class SettingsWindowController {
                 backing: .buffered,
                 defer: false
             )
-            w.title = "Налаштування"
+            w.title = "Настройки"
             w.sharingType = .none
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: SettingsView(model: model))
@@ -35,19 +35,19 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
     @State private var key = ""
 
-    static let zoomHint = "Щоб картку не було видно в трансляції: Zoom → Settings → Share Screen → Advanced → Screen capture mode → Advanced capture with window filtering. Якщо картку все одно видно — демонструйте окреме вікно, а не весь екран, або інший дисплей (картку тримайте на екрані ноутбука). Перевіряйте на пристрої іншого учасника. Сховати картку: ⌥⌘H."
+    static let zoomHint = "Чтобы карточку не было видно в трансляции: Zoom → Settings → Share Screen → Advanced → Screen capture mode → Advanced capture with window filtering. Если карточку всё равно видно — демонстрируйте отдельное окно, а не весь экран, или другой дисплей (карточку держите на экране ноутбука). Проверяйте на устройстве другого участника. Скрыть карточку: ⌥⌘H."
 
     var body: some View {
         Form {
             Section("Ключ Claude API") {
-                SecureField(model.hasAPIKey ? "Ключ збережено — введіть новий, щоб замінити" : "sk-ant-…", text: $key)
-                Button("Зберегти") {
+                SecureField(model.hasAPIKey ? "Ключ сохранён — введите новый, чтобы заменить" : "sk-ant-…", text: $key)
+                Button("Сохранить") {
                     model.saveAPIKey(key)
                     key = ""
                 }
                 .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Section("Демонстрація екрана в Zoom") {
+            Section("Демонстрация экрана в Zoom") {
                 Text(Self.zoomHint)
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)

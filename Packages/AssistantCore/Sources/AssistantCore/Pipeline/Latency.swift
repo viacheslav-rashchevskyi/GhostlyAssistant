@@ -18,17 +18,17 @@ public struct Latency: Equatable, Sendable {
     }
 }
 
-public enum UkrainianPlural {
+public enum RussianPlural {
     public static func previousAnswers(_ n: Int) -> String {
         let mod10 = n % 10, mod100 = n % 100
         let noun: String
         if mod10 == 1 && mod100 != 11 {
-            noun = "попередня відповідь"
+            noun = "предыдущий ответ"
         } else if (2...4).contains(mod10) && !(12...14).contains(mod100) {
-            noun = "попередні відповіді"
+            noun = "предыдущих ответа"
         } else {
-            noun = "попередніх відповідей"
+            noun = "предыдущих ответов"
         }
-        return "↑ ще \(n) \(noun)"
+        return "↑ ещё \(n) \(noun)"
     }
 }

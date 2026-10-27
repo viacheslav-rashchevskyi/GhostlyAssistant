@@ -14,8 +14,8 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
     /// true while audio is present.
     var onLevel: (@Sendable (Bool) -> Void)?
 
-    private static let log = Logger(subsystem: "local.zoomassistant.app", category: "audio")
-    private let queue = DispatchQueue(label: "local.zoomassistant.audio")
+    private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "audio")
+    private let queue = DispatchQueue(label: "local.ghostlyassistant.audio")
     private let segmenter = UtteranceSegmenter()
     private var stream: SCStream?
     private var lastLevel: Bool?

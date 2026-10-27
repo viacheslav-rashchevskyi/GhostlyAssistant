@@ -146,7 +146,7 @@ private extension Array where Element == CardEvent {
     let ev = await collect(p)
     #expect(ev.deltas.joined() == "Частина")
     guard let id = ev.answerId else { Issue.record("no start: \(ev)"); return }
-    #expect(ev.last == .answerFailed(id: id, message: "Помилка API (529). Спробую на наступному питанні."))
+    #expect(ev.last == .answerFailed(id: id, message: "Ошибка API (529). Попробую на следующем вопросе."))
 }
 
 @Test func failureBeforeAnyTextStillReportsError() async {
@@ -155,7 +155,7 @@ private extension Array where Element == CardEvent {
     await p.handle(utterance)
     let ev = await collect(p)
     guard case .answerFailed(_, let message) = ev.last else { Issue.record("no failure: \(ev)"); return }
-    #expect(message == "Немає мережі. Спробую на наступному питанні.")
+    #expect(message == "Нет сети. Попробую на следующем вопросе.")
 }
 
 @Test func refusalWithoutTextIsReported() async {
@@ -163,7 +163,7 @@ private extension Array where Element == CardEvent {
     let p = makePipeline(text: "Поясніть архітектуру вашого рішення", claude: claude)
     await p.handle(utterance)
     guard case .answerFailed(_, let message) = await collect(p).last else { Issue.record(); return }
-    #expect(message == "Модель відмовилась відповідати.")
+    #expect(message == "Модель отказалась отвечать.")
 }
 
 @Test func toolLoopRunsSearchThenAnswers() async {

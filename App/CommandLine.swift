@@ -2,7 +2,7 @@ import AssistantCore
 import AVFoundation
 import Foundation
 
-/// `ZoomAssistant --transcribe <audio file>`: prints the Whisper transcript and timing, then exits.
+/// `GhostlyAssistant --transcribe <audio file>`: prints the Whisper transcript and timing, then exits.
 enum DebugCommandLine {
     static var transcribePath: String? {
         let args = CommandLine.arguments

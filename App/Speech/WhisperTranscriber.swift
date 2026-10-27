@@ -14,7 +14,7 @@ actor WhisperTranscriber: SpeechTranscribing {
 
     static var modelsBase: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ZoomAssistant/Models", isDirectory: true)
+            .appendingPathComponent("GhostlyAssistant/Models", isDirectory: true)
     }
 
     func load(progress: @escaping @Sendable (Double) -> Void) async throws {

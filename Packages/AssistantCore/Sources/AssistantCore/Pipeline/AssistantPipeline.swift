@@ -33,7 +33,7 @@ public enum CardEvent: Equatable, Sendable {
 /// Turns finished utterances into streamed answers: transcribe → filter → screenshot → Claude (with optional KB tools).
 public actor AssistantPipeline {
     static let maxToolRounds = 3
-    private static let log = Logger(subsystem: "local.zoomassistant.app", category: "latency")
+    private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "latency")
 
     public nonisolated let events: AsyncStream<CardEvent>
     private let continuation: AsyncStream<CardEvent>.Continuation
@@ -173,7 +173,7 @@ public actor AssistantPipeline {
         guard started, let firstTextAt else {
             if stopReason == "refusal" {
                 start()
-                continuation.yield(.answerFailed(id: id, message: "Модель відмовилась відповідати."))
+                continuation.yield(.answerFailed(id: id, message: "Модель отказалась отвечать."))
             }
             return
         }
@@ -191,15 +191,15 @@ public actor AssistantPipeline {
     static func message(for error: Error) -> String {
         switch error as? ClaudeError {
         case .http(let status, _):
-            return "Помилка API (\(status)). Спробую на наступному питанні."
+            return "Ошибка API (\(status)). Попробую на следующем вопросе."
         case .stream(let type, _):
-            return "Помилка API (\(type == "overloaded_error" ? 529 : 500)). Спробую на наступному питанні."
+            return "Ошибка API (\(type == "overloaded_error" ? 529 : 500)). Попробую на следующем вопросе."
         case .network:
-            return "Немає мережі. Спробую на наступному питанні."
+            return "Нет сети. Попробую на следующем вопросе."
         case nil:
             return error is URLError
-                ? "Немає мережі. Спробую на наступному питанні."
-                : "Помилка API (500). Спробую на наступному питанні."
+                ? "Нет сети. Попробую на следующем вопросе."
+                : "Ошибка API (500). Попробую на следующем вопросе."
         }
     }
 }
