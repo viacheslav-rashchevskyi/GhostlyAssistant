@@ -63,9 +63,24 @@ GhostlyAssistant — vendor-agnostic: ответы строит выбранна
 
 Ответы строятся через Claude Messages API напрямую по HTTP с разбором SSE — официального SDK для Swift нет.
 
+## Установка
+
+Нужны Mac на Apple Silicon с macOS 26+ и свой ключ Claude API.
+
+1. Скачайте `GhostlyAssistant-<версия>.dmg` из [Releases](../../releases) и перетащите приложение в «Программы».
+2. Сборка подписана сертификатом разработчика, но не нотаризована, поэтому при первом запуске macOS
+   скажет, что не может проверить разработчика. Откройте **Системные настройки → Конфиденциальность
+   и безопасность** и нажмите **«Всё равно открыть»** — или снимите карантин в Терминале:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/GhostlyAssistant.app
+   ```
+
+Дальше — раздел [«Первый запуск»](#первый-запуск).
+
 ## Сборка
 
-Нужны macOS 26+, Xcode 26+ и [XcodeGen](https://github.com/yonsson/XcodeGen).
+Нужны macOS 26+, Xcode 26+ и [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
 brew install xcodegen
