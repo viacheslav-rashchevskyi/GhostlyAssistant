@@ -13,6 +13,9 @@ struct CardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
+            if model.status == .ready, let live = model.live {
+                StageBar(live: live)
+            }
             content
                 .frame(maxHeight: .infinity, alignment: .top)
             TextField("Спросить самому…", text: $typed)
@@ -40,9 +43,7 @@ struct CardView: View {
                 .frame(width: 7, height: 7)
             Text(model.audioPresent ? "Слушаю" : "Жду звук")
             Spacer()
-            if latest?.lookingUpKB == true {
-                Text("ищу в базе…")
-            } else if let latency = latest?.latency {
+            if let latency = latest?.latency {
                 Text(latency.label).monospacedDigit()
             }
         }

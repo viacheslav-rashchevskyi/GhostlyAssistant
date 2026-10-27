@@ -80,7 +80,7 @@ private func collect(_ p: AssistantPipeline, timeout: Duration = .milliseconds(3
             for await e in p.events {
                 out.append(e)
                 switch e {
-                case .answerFinished, .answerFailed: return out
+                case .answerFinished, .answerFailed, .activity(_, .skipped): return out
                 default: continue
                 }
             }
@@ -104,6 +104,13 @@ private extension Array where Element == CardEvent {
         for e in self { if case .answerStarted(let id, _) = e { return id } }
         return nil
     }
+    var question: String? {
+        for e in self { if case .answerStarted(_, let q) = e { return q } }
+        return nil
+    }
+    var activities: [Activity] {
+        compactMap { if case .activity(_, let a) = $0 { a } else { nil } }
+    }
 }
 
 @Test func answersAQuestion() async {
@@ -111,17 +118,40 @@ private extension Array where Element == CardEvent {
     let p = makePipeline(text: "Чому ви обрали Swift для цього?", claude: claude)
     await p.handle(utterance)
     let ev = await collect(p)
-    guard case .answerStarted(_, let q) = ev.first else { Issue.record("no start: \(ev)"); return }
-    #expect(q == "Чому ви обрали Swift для цього?")
+    #expect(ev.question == "Чому ви обрали Swift для цього?")
     #expect(ev.deltas.joined() == "**Бо так.**")
     guard case .answerFinished = ev.last else { Issue.record("not finished: \(ev)"); return }
     #expect(claude.requests[0].messages[0].content.contains(.imageJPEG(Data([7]))))
 }
 
-@Test func sentinelProducesNoEvents() async {
+@Test func stagesComeBeforeTheAnswerWithOneId() async {
+    let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "Так."), .messageStop])])
+    let p = makePipeline(text: "Чому ви обрали Swift для цього?", claude: claude)
+    await p.handle(utterance)
+    let ev = await collect(p)
+    #expect(ev.activities == [.transcribing, .heard("Чому ви обрали Swift для цього?"), .thinking])
+    guard case .activity(let stageId, .transcribing) = ev.first else { Issue.record("no transcribing first: \(ev)"); return }
+    #expect(ev.answerId == stageId)
+}
+
+@Test func sentinelIsReportedAsSkipped() async {
     let p = makePipeline(text: "Добрий день усім присутнім", claude: FakeClaude(scripts: [.events([.textDelta(index: 0, text: "∅"), .messageStop])]))
     await p.handle(utterance)
-    #expect(await collect(p).isEmpty)
+    let ev = await collect(p)
+    #expect(ev.activities == [.transcribing, .heard("Добрий день усім присутнім"), .thinking, .skipped(.notAQuestion)])
+    #expect(ev.answerId == nil)
+}
+
+@Test func shortUtteranceIsReportedAsSkipped() async {
+    let p = makePipeline(text: "так", claude: FakeClaude(scripts: []))
+    await p.handle(utterance)
+    #expect(await collect(p).activities == [.transcribing, .heard("так"), .skipped(.tooShort)])
+}
+
+@Test func emptyTranscriptIsReportedAsNothingHeard() async {
+    let p = makePipeline(text: "  ", claude: FakeClaude(scripts: []))
+    await p.handle(utterance)
+    #expect(await collect(p).activities == [.transcribing, .skipped(.nothingHeard)])
 }
 
 @Test func shortUtteranceNeverCallsClaude() async {
@@ -198,7 +228,7 @@ private extension Array where Element == CardEvent {
     let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "Так"), .messageStop])])
     let p = makePipeline(text: "", claude: claude)
     await p.ask("Хто?")
-    _ = await collect(p)
+    #expect(await collect(p).activities == [.thinking])
     #expect(claude.requests.count == 1)
     #expect(claude.requests[0].messages[0].content.last == .text("<typed_question>\nХто?\n</typed_question>"))
 }

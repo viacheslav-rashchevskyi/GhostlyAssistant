@@ -22,7 +22,23 @@ public struct NoKnowledge: KnowledgeProviding {
     public func execute(tool: String, input: JSONValue) async -> [ContentBlock] { [.text("No knowledge base.")] }
 }
 
+/// What the pipeline is doing with one utterance before (or instead of) answering.
+public enum Activity: Equatable, Sendable {
+    case transcribing
+    case heard(String)
+    case thinking
+    case skipped(SkipReason)
+}
+
+public enum SkipReason: Equatable, Sendable {
+    case nothingHeard
+    case tooShort
+    case notAQuestion
+}
+
+/// Stage and answer events share the utterance's id.
 public enum CardEvent: Equatable, Sendable {
+    case activity(id: UUID, Activity)
     case answerStarted(id: UUID, question: String)
     case answerDelta(id: UUID, text: String)
     case kbLookup(id: UUID)
@@ -60,13 +76,22 @@ public actor AssistantPipeline {
     }
 
     public func handle(_ u: Utterance) async {
+        let id = UUID()
         let t0 = now()
-        guard let raw = try? await transcriber.transcribe(u.samples) else { return }
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        continuation.yield(.activity(id: id, .transcribing))
+        let text = ((try? await transcriber.transcribe(u.samples)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            continuation.yield(.activity(id: id, .skipped(.nothingHeard)))
+            return
+        }
         let transcribed = now()
+        continuation.yield(.activity(id: id, .heard(text)))
         transcript.append(text, at: u.endedAt)
-        guard UtteranceFilter.shouldSend(text) else { return }
+        guard UtteranceFilter.shouldSend(text) else {
+            continuation.yield(.activity(id: id, .skipped(.tooShort)))
+            return
+        }
+        continuation.yield(.activity(id: id, .thinking))
         let shot = try? await screenshots.captureJPEG()
         Self.log.info("transcribe \(transcribed.timeIntervalSince(t0), format: .fixed(precision: 2))s screenshot \(self.now().timeIntervalSince(transcribed), format: .fixed(precision: 2))s")
         let ctx = AnswerContext(
@@ -76,13 +101,15 @@ public actor AssistantPipeline {
             screenshotJPEG: shot,
             typedByUser: false
         )
-        await answer(ctx, startedAt: u.endedAt)
+        await answer(ctx, id: id, startedAt: u.endedAt)
     }
 
     public func ask(_ typed: String) async {
         let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        let id = UUID()
         let start = now()
+        continuation.yield(.activity(id: id, .thinking))
         let ctx = AnswerContext(
             utterance: text,
             recentTranscript: transcript.recent(now: start),
@@ -90,7 +117,7 @@ public actor AssistantPipeline {
             screenshotJPEG: try? await screenshots.captureJPEG(),
             typedByUser: true
         )
-        await answer(ctx, startedAt: start)
+        await answer(ctx, id: id, startedAt: start)
     }
 
     private struct PendingTool {
@@ -99,8 +126,7 @@ public actor AssistantPipeline {
         var json = ""
     }
 
-    private func answer(_ ctx: AnswerContext, startedAt: Date) async {
-        let id = UUID()
+    private func answer(_ ctx: AnswerContext, id: UUID, startedAt: Date) async {
         let kb = await knowledge.payload()
         let tools = await knowledge.tools()
         var request = RequestBuilder.answer(ctx, kb: kb, tools: tools)
@@ -132,6 +158,7 @@ public actor AssistantPipeline {
                         roundText += t
                         switch gate.feed(t) {
                         case .suppressed:
+                            continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
                             return
                         case .undecided:
                             break
@@ -174,6 +201,8 @@ public actor AssistantPipeline {
             if stopReason == "refusal" {
                 start()
                 continuation.yield(.answerFailed(id: id, message: "Модель отказалась отвечать."))
+            } else {
+                continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
             }
             return
         }

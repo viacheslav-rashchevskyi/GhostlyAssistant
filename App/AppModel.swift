@@ -11,6 +11,15 @@ struct CardAnswer: Identifiable, Equatable {
     var error: String?
 }
 
+/// Progress of the most recent utterance through the pipeline, for the stage bar.
+struct LiveStage: Equatable {
+    enum Step: Equatable { case transcribing, thinking, searching, answering, done, skipped(SkipReason) }
+
+    let id: UUID
+    var step: Step
+    var heard: String?
+}
+
 enum CardStatus: Equatable {
     case ready
     case needsKey
@@ -27,6 +36,7 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var answers: [CardAnswer] = []
     @Published private(set) var audioPresent = false
+    @Published private(set) var live: LiveStage?
     @Published private(set) var status: CardStatus = .ready
     @Published var isCardVisible = true
 
@@ -106,7 +116,10 @@ final class AppModel: ObservableObject {
     }
 
     private func apply(_ event: CardEvent) {
+        updateLive(event)
         switch event {
+        case .activity:
+            break
         case .answerStarted(let id, let question):
             if let i = index(id) {
                 answers[i].question = question
@@ -141,6 +154,30 @@ final class AppModel: ObservableObject {
         guard !hasAPIKey, let key = old.read(Self.apiKeyAccount) else { return }
         guard (try? keychain.write(key, account: Self.apiKeyAccount)) != nil else { return }
         old.delete(Self.apiKeyAccount)
+    }
+
+    /// Follows the newest utterance; events from older, still-running answers don't move the stage bar back.
+    private func updateLive(_ event: CardEvent) {
+        switch event {
+        case .activity(let id, .transcribing):
+            live = LiveStage(id: id, step: .transcribing)
+        case .activity(let id, let activity):
+            if live?.id != id { live = LiveStage(id: id, step: .thinking) }
+            switch activity {
+            case .heard(let text): live?.heard = text
+            case .thinking: live?.step = .thinking
+            case .skipped(let reason): live?.step = .skipped(reason)
+            case .transcribing: break
+            }
+        case .answerStarted(let id, _):
+            if live?.id == id { live?.step = .answering }
+        case .kbLookup(let id):
+            if live?.id == id { live?.step = .searching }
+        case .answerFinished(let id, _), .answerFailed(let id, _):
+            if live?.id == id { live?.step = .done }
+        case .answerDelta:
+            break
+        }
     }
 
     private func index(_ id: UUID) -> Int? {
