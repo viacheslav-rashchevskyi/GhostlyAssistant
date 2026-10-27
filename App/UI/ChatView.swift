@@ -33,9 +33,7 @@ private struct ChatHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+            GhostGlyph(size: 15)
             Text("Ghostly")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
             ListeningPill(active: model.audioPresent)
@@ -190,10 +188,7 @@ private struct AssistantBubble: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .top, endPoint: .bottom))
-                .symbolEffect(.pulse, options: .repeating, isActive: inProgress)
+            GhostGlyph(size: 13, pulsing: inProgress)
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(Color.white.opacity(0.08)))
             VStack(alignment: .leading, spacing: 6) {
@@ -314,6 +309,26 @@ private struct PipelineSteps: View {
                     .matchedGeometryEffect(id: "marker", in: marker)
             }
         }
+    }
+}
+
+/// The Ghostly ghost in the purple→cyan accent gradient; gently pulses while the assistant is working.
+private struct GhostGlyph: View {
+    let size: CGFloat
+    var pulsing = false
+
+    var body: some View {
+        Image("GhostGlyph")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .phaseAnimator([false, true]) { content, phase in
+                content
+                    .opacity(pulsing && phase ? 0.45 : 1)
+                    .offset(y: pulsing && phase ? -1.5 : 0)
+            } animation: { _ in .easeInOut(duration: 0.7) }
     }
 }
 

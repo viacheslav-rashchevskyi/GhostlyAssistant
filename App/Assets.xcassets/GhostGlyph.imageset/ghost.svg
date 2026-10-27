@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="625" height="625" viewBox="297 283 625 625">
+<!-- Menu bar template: ghost silhouette with see-through eyes. Rendered black; macOS tints it. -->
+<defs>
+<mask id="eyes">
+<rect x="0" y="0" width="1200" height="1200" fill="white"/>
+<ellipse cx="700" cy="495" rx="40" ry="60" fill="black"/>
+<ellipse cx="830" cy="495" rx="38" ry="58" fill="black"/>
+</mask>
+</defs>
+<g mask="url(#eyes)">
+<path transform="translate(45 0)" d="M650 290 C770 290 870 380 868 520 C866 640 840 760 770 860 C745 895 715 905 690 885 C665 865 650 840 620 845 C590 850 590 900 545 900 C505 900 495 845 455 840 C420 836 400 860 370 850 C340 840 330 800 300 770 C285 750 270 735 262 722 C330 705 380 660 410 600 C450 520 460 450 500 380 C535 320 590 290 650 290 Z" fill="#000"/>
+</g>
+</svg>
