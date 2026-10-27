@@ -119,7 +119,7 @@ enum Loc {
         "Small, сжатая": "Small, compressed",
         "Large v3 Turbo, сжатая": "Large v3 Turbo, compressed",
         "Large v3, сжатая": "Large v3, compressed",
-        "выбрана": "selected",
+        "Активна": "Active",
         "скачана": "downloaded",
         "загружаю": "loading",
         "удаляю": "deleting",

@@ -328,9 +328,25 @@ private struct SelectableRow<Content: View>: View {
     }
 }
 
+/// The model in use: a quiet live dot instead of another chip, since the row is already highlighted.
+private struct ActiveStatus: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 6, height: 6)
+                .shadow(color: .green.opacity(0.8), radius: 3)
+                .phaseAnimator([1.0, 0.35]) { dot, opacity in dot.opacity(opacity) } animation: { _ in .easeInOut(duration: 1.1) }
+            Text(L("Активна"))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// A small glass capsule with an icon, tinted by its kind.
 private struct Badge: View {
-    enum Kind { case recommended, selected, downloaded }
+    enum Kind { case recommended, downloaded }
 
     let text: String
     let kind: Kind
@@ -338,7 +354,6 @@ private struct Badge: View {
     private var icon: String {
         switch kind {
         case .recommended: "sparkle"
-        case .selected: "checkmark"
         case .downloaded: "arrow.down.circle.fill"
         }
     }
@@ -346,7 +361,6 @@ private struct Badge: View {
     private var colors: [Color] {
         switch kind {
         case .recommended: [Color(red: 0.25, green: 0.85, blue: 0.55), Color(red: 0.2, green: 0.75, blue: 0.85)]
-        case .selected: [.purple, Color(red: 0.3, green: 0.6, blue: 1)]
         case .downloaded: [Color(red: 0.35, green: 0.55, blue: 1), Color(red: 0.35, green: 0.55, blue: 1)]
         }
     }
@@ -467,7 +481,11 @@ private struct WhisperRow: View {
                 Text(L("удаляю")).font(.caption).foregroundStyle(.secondary)
                     .transition(.opacity)
             } else if installed {
-                Badge(text: selected ? L("выбрана") : L("скачана"), kind: selected ? .selected : .downloaded)
+                if selected {
+                    ActiveStatus()
+                } else {
+                    Badge(text: L("скачана"), kind: .downloaded)
+                }
                 Button {
                     confirmDelete = true
                 } label: {
