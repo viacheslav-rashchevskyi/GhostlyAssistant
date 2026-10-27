@@ -1,0 +1,501 @@
+import AppKit
+import AssistantCore
+import Foundation
+import os
+
+/// One exchange in the chat: something heard on the call (or asked by the user) and the assistant's reply.
+struct ChatTurn: Identifiable, Equatable {
+    enum Source: Equatable { case call, user }
+    enum Step: Equatable { case transcribing, thinking, searching, answering, done, skipped(SkipReason) }
+
+    let id: UUID
+    var source: Source
+    var step: Step
+    var question: String?
+    var answer = ""
+    var latency: Latency?
+    var error: String?
+
+    var isSkipped: Bool {
+        if case .skipped = step { true } else { false }
+    }
+}
+
+enum CardStatus: Equatable {
+    case ready
+    case needsKey
+    case needsPermission
+    case downloadingModel(Double)
+    case error(String)
+}
+
+/// What the settings show about the knowledge base.
+struct KnowledgeState: Equatable {
+    var paths: [URL] = []
+    var mode: KBMode = .none
+    var tokens = 0
+    var skipped: [String] = []
+    var isLoading = false
+}
+
+enum MicState: Equatable {
+    case idle
+    case recording
+    case transcribing
+}
+
+/// Wires capture, Whisper and the core pipeline together and holds what the chat shows.
+@MainActor
+final class AppModel: ObservableObject {
+    nonisolated static let apiKeyAccount = "anthropic-api-key"
+    static let maxTurns = 40
+
+    @Published private(set) var turns: [ChatTurn] = []
+    @Published private(set) var audioPresent = false
+    @Published private(set) var status: CardStatus = .ready
+    @Published private(set) var mic: MicState = .idle
+    @Published private(set) var micLevel: Float = 0
+    @Published private(set) var micError: String?
+    @Published var isCardVisible = true
+    @Published var uiLanguage: UILanguage = Loc.language {
+        didSet {
+            Loc.language = uiLanguage
+            UserDefaults.standard.set(uiLanguage.rawValue, forKey: "uiLanguage")
+        }
+    }
+    @Published private(set) var knowledge = KnowledgeState()
+    @Published private(set) var sessionUsage = TokenUsage()
+    @Published private(set) var sessionCost = SessionCost(usd: 0)
+    @Published var answerStyle = AppModel.storedStyle() {
+        didSet {
+            UserDefaults.standard.set(answerStyle.length.rawValue, forKey: "answerLength")
+            UserDefaults.standard.set(answerStyle.custom, forKey: "answerCustom")
+            let style = answerStyle
+            Task {
+                await pipeline?.setStyle(style)
+                await knowledgeStore?.setStyle(style)
+                await knowledgeStore?.prewarm() // the system prefix changed, so warm it again
+            }
+        }
+    }
+    @Published var theme = UserDefaults.standard.string(forKey: "appTheme").flatMap(AppTheme.init(rawValue:)) ?? .system {
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: "appTheme")
+            NSApp.appearance = theme.appearance
+        }
+    }
+    @Published var fontScale: Double = UserDefaults.standard.object(forKey: "fontScale") as? Double ?? 1 {
+        didSet { UserDefaults.standard.set(fontScale, forKey: "fontScale") }
+    }
+    @Published var launchAtLogin = LaunchAtLogin.isEnabled {
+        didSet {
+            guard launchAtLogin != oldValue else { return }
+            do { try LaunchAtLogin.set(launchAtLogin) }
+            catch { launchAtLogin = oldValue }
+        }
+    }
+    @Published var callLanguage: SpeechLanguage = AppModel.storedLanguage("callLanguage", default: .uk) {
+        didSet {
+            UserDefaults.standard.set(callLanguage.rawValue, forKey: "callLanguage")
+            Task { await whisper.setCallLanguage(callLanguage.code) }
+        }
+    }
+    @Published var claudeModel: ClaudeModel = UserDefaults.standard.string(forKey: "claudeModel").map(ClaudeModel.init(id:)) ?? .haiku {
+        didSet {
+            UserDefaults.standard.set(claudeModel.id, forKey: "claudeModel")
+            let model = claudeModel
+            Task {
+                await pipeline?.setModel(model)
+                await knowledgeStore?.setModel(model)
+                await knowledgeStore?.prewarm()
+            }
+        }
+    }
+    /// Models offered in settings: the API's list for this key, or the known ones when it can't be fetched.
+    @Published private(set) var claudeModels: [ClaudeModelInfo] = ClaudeCatalogFallback.models
+    @Published private(set) var claudeModelsLoading = false
+    @Published private(set) var claudeModelsFromAPI = false
+    /// Display name → price from Anthropic's pricing page; empty until fetched.
+    @Published private(set) var claudePrices: [String: ClaudePrice] = [:]
+    @Published private(set) var whisperVariant = UserDefaults.standard.string(forKey: "whisperModel") ?? WhisperCatalog.recommended
+    @Published private(set) var installedWhisper: Set<String> = []
+    @Published private(set) var whisperDownloads: [String: Double] = [:]
+    @Published private(set) var whisperLoading: String?
+    @Published private(set) var whisperError: String?
+    @Published private(set) var whisperDiskBytes: Int64 = 0
+    @Published private(set) var whisperDeleting: Set<String> = []
+    @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
+        didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
+    }
+
+    private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
+    private let keychain = KeychainStore()
+    private let capture = SystemAudioCapture()
+    private let whisper = WhisperTranscriber()
+    private let recorder = MicRecorder()
+    private var pipeline: AssistantPipeline?
+    private var eventsTask: Task<Void, Never>?
+    private var captureRunning = false
+    private var knowledgeStore: KnowledgeStore?
+    private static let knowledgePathsKey = "knowledgePaths"
+
+
+    var hasAPIKey: Bool { !(keychain.read(Self.apiKeyAccount) ?? "").isEmpty }
+    var latestLatency: Latency? { turns.last { $0.latency != nil }?.latency }
+
+    func start() async {
+        migrateKeyFromOldName()
+        guard let key = keychain.read(Self.apiKeyAccount), !key.isEmpty else {
+            status = .needsKey
+            return
+        }
+        guard await ScreenPermission.check() else {
+            ScreenPermission.request()
+            status = .needsPermission
+            return
+        }
+        do {
+            status = .downloadingModel(0)
+            await whisper.setCallLanguage(callLanguage.code)
+            refreshInstalledWhisper()
+            try await whisper.load(variant: whisperVariant) { [weak self] p in
+                Task { @MainActor in
+                    guard let self, case .downloadingModel = self.status else { return }
+                    self.status = .downloadingModel(p)
+                }
+            }
+            refreshInstalledWhisper()
+            let client = ClaudeClient(apiKey: key)
+            let store = KnowledgeStore(api: client)
+            await store.setModel(claudeModel)
+            await store.setStyle(answerStyle)
+            knowledgeStore = store
+            let pipeline = AssistantPipeline(
+                transcriber: whisper,
+                screenshots: ScreenshotService(),
+                claude: client,
+                knowledge: store
+            )
+            await pipeline.setModel(claudeModel)
+            await pipeline.setStyle(answerStyle)
+            install(pipeline)
+            Task { await refreshClaudeModels() }
+            Task { await reloadKnowledge() }
+            if !captureRunning {
+                capture.onLevel = { [weak self] present in
+                    Task { @MainActor in self?.audioPresent = present }
+                }
+                try await capture.start()
+                captureRunning = true
+            }
+            status = .ready
+        } catch {
+            Self.log.error("start failed: \(error.localizedDescription, privacy: .public)")
+            status = .error(L("Не удалось запустить: %@", error.localizedDescription))
+        }
+    }
+
+    func saveAPIKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try? keychain.write(trimmed, account: Self.apiKeyAccount)
+        Task { await start() }
+    }
+
+    func ask(_ text: String) {
+        guard let pipeline, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        Task { await pipeline.ask(text) }
+    }
+
+    // MARK: Claude models
+
+    /// Models from the API for this key and prices from the pricing page, fetched together.
+    func refreshClaudeModels() async {
+        claudeModelsLoading = true
+        async let prices = try? PricingPage.fetch()
+        if let key = keychain.read(Self.apiKeyAccount), !key.isEmpty,
+           let models = try? await ClaudeClient(apiKey: key).listModels(), !models.isEmpty {
+            claudeModels = models.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+            claudeModelsFromAPI = true
+        }
+        if let fetched = await prices, !fetched.isEmpty { claudePrices = fetched }
+        claudeModelsLoading = false
+    }
+
+    /// Live price when the pricing page lists the model, otherwise the built-in table.
+    func price(for info: ClaudeModelInfo) -> ClaudePrice? {
+        claudePrices[info.displayName] ?? info.model.price
+    }
+
+    // MARK: Whisper models
+
+    var whisperFolder: URL { WhisperTranscriber.modelsBase }
+
+    func refreshInstalledWhisper() {
+        installedWhisper = Set(WhisperCatalog.models.map(\.variant).filter { WhisperTranscriber.installedFolder($0) != nil })
+        whisperDiskBytes = WhisperTranscriber.diskUsage()
+    }
+
+    private var whisperTasks: [String: Task<Void, Never>] = [:]
+
+    func downloadWhisper(_ variant: String) {
+        guard whisperDownloads[variant] == nil else { return }
+        whisperError = nil
+        whisperDownloads[variant] = 0
+        whisperTasks[variant] = Task {
+            do {
+                _ = try await WhisperTranscriber.download(variant) { [weak self] p in
+                    Task { @MainActor in
+                        if self?.whisperDownloads[variant] != nil { self?.whisperDownloads[variant] = p }
+                    }
+                }
+            } catch {
+                handleWhisperFailure(variant, error, message: "Не удалось скачать модель: %@")
+            }
+            finishWhisperTask(variant)
+        }
+    }
+
+    /// Switches recognition to `variant`, downloading it first when needed.
+    func selectWhisper(_ variant: String) {
+        guard variant != whisperVariant, whisperLoading == nil else { return }
+        whisperError = nil
+        whisperLoading = variant
+        if !installedWhisper.contains(variant) { whisperDownloads[variant] = 0 }
+        whisperTasks[variant] = Task {
+            do {
+                try await whisper.load(variant: variant) { [weak self] p in
+                    Task { @MainActor in
+                        if self?.whisperDownloads[variant] != nil { self?.whisperDownloads[variant] = p }
+                    }
+                }
+                try Task.checkCancellation()
+                whisperVariant = variant
+                UserDefaults.standard.set(variant, forKey: "whisperModel")
+            } catch {
+                handleWhisperFailure(variant, error, message: "Не удалось загрузить модель: %@")
+            }
+            whisperLoading = nil
+            finishWhisperTask(variant)
+        }
+    }
+
+    /// Stops a running download; the partly downloaded files are removed and the previous model stays in use.
+    func cancelWhisperDownload(_ variant: String) {
+        whisperTasks[variant]?.cancel()
+    }
+
+    private func handleWhisperFailure(_ variant: String, _ error: Error, message: String) {
+        let cancelled = Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
+        if cancelled {
+            try? WhisperTranscriber.removeFiles(variant)
+        } else {
+            whisperError = L(message, error.localizedDescription)
+        }
+    }
+
+    private func finishWhisperTask(_ variant: String) {
+        whisperDownloads[variant] = nil
+        whisperTasks[variant] = nil
+        refreshInstalledWhisper()
+    }
+
+    /// The model in use can't be deleted; the user picks another one first.
+    func deleteWhisper(_ variant: String) {
+        guard variant != whisperVariant, !whisperDeleting.contains(variant) else { return }
+        whisperError = nil
+        whisperDeleting.insert(variant)
+        Task {
+            // Removing hundreds of megabytes takes a moment; keep it off the main thread.
+            let failure = await Task.detached { () -> String? in
+                do {
+                    try WhisperTranscriber.delete(variant)
+                    return nil
+                } catch {
+                    return error.localizedDescription
+                }
+            }.value
+            if let failure { whisperError = L("Не удалось удалить модель: %@", failure) }
+            whisperDeleting.remove(variant)
+            refreshInstalledWhisper()
+        }
+    }
+
+    // MARK: Knowledge base
+
+    func addKnowledge(_ urls: [URL]) {
+        let merged = savedKnowledgePaths() + urls.filter { !savedKnowledgePaths().contains($0) }
+        saveKnowledgePaths(merged)
+        Task { await reloadKnowledge() }
+    }
+
+    func removeKnowledge(_ url: URL) {
+        saveKnowledgePaths(savedKnowledgePaths().filter { $0 != url })
+        Task { await reloadKnowledge() }
+    }
+
+    func clearKnowledge() {
+        saveKnowledgePaths([])
+        Task { await reloadKnowledge() }
+    }
+
+    /// Re-reads the chosen files, picks inline or search mode, and warms the prompt cache.
+    func reloadKnowledge() async {
+        let paths = savedKnowledgePaths()
+        knowledge.paths = paths
+        guard let store = knowledgeStore else { return }
+        knowledge.isLoading = true
+        let result = await store.configure(paths)
+        knowledge = KnowledgeState(paths: paths, mode: result.mode, tokens: result.tokens, skipped: result.skipped)
+        await store.prewarm()
+    }
+
+    private static func storedLanguage(_ key: String, default fallback: SpeechLanguage) -> SpeechLanguage {
+        UserDefaults.standard.string(forKey: key).flatMap(SpeechLanguage.init(rawValue:)) ?? fallback
+    }
+
+    private func savedKnowledgePaths() -> [URL] {
+        (UserDefaults.standard.stringArray(forKey: Self.knowledgePathsKey) ?? []).map { URL(fileURLWithPath: $0) }
+    }
+
+    private func saveKnowledgePaths(_ urls: [URL]) {
+        UserDefaults.standard.set(urls.map(\.path), forKey: Self.knowledgePathsKey)
+        knowledge.paths = urls
+    }
+
+    func clearChat() {
+        turns.removeAll()
+    }
+
+    /// Answer a heard reply the assistant skipped (clicked or via hotkey).
+    func answerSkipped(_ id: UUID) {
+        guard let pipeline else { return }
+        Task { await pipeline.answer(utteranceId: id) }
+    }
+
+    func answerLastSkipped() {
+        guard let pipeline else { return }
+        Task { await pipeline.answerLastSkipped() }
+    }
+
+    /// Price of the model that answers now: the live price when known, else the built-in table.
+    private var activePrice: ClaudePrice {
+        claudeModels.first { $0.model == claudeModel }.flatMap { claudePrices[$0.displayName] } ?? claudeModel.price ?? ClaudePrice(input: 0, output: 0)
+    }
+
+    private static func storedStyle() -> AnswerStyle {
+        let length = UserDefaults.standard.string(forKey: "answerLength").flatMap(AnswerStyle.Length.init(rawValue:)) ?? .balanced
+        return AnswerStyle(length: length, custom: UserDefaults.standard.string(forKey: "answerCustom") ?? "")
+    }
+
+    /// Push-to-talk: the first call starts recording, the second transcribes it in the user's language and asks it.
+    func toggleMic() {
+        switch mic {
+        case .idle:
+            Task { await startRecording() }
+        case .recording:
+            let samples = recorder.stop()
+            mic = .transcribing
+            micLevel = 0
+            Task {
+                let text = (try? await whisper.transcribe(samples, language: micLanguage.code)) ?? ""
+                mic = .idle
+                if text.isEmpty {
+                    micError = L("Не расслышал, попробуйте ещё раз")
+                } else {
+                    ask(text)
+                }
+            }
+        case .transcribing:
+            break
+        }
+    }
+
+    private func startRecording() async {
+        micError = nil
+        guard await MicRecorder.requestAccess() else {
+            micError = L("Нет доступа к микрофону — разрешите в Системных настройках")
+            return
+        }
+        recorder.onLevel = { [weak self] level in
+            Task { @MainActor in self?.micLevel = level }
+        }
+        do {
+            try recorder.start()
+            mic = .recording
+        } catch {
+            micError = L("Микрофон недоступен: %@", error.localizedDescription)
+        }
+    }
+
+    private func install(_ pipeline: AssistantPipeline) {
+        self.pipeline = pipeline
+        capture.onUtterance = { u in
+            Task { await pipeline.handle(u) }
+        }
+        eventsTask?.cancel()
+        eventsTask = Task { [weak self] in
+            for await event in pipeline.events {
+                self?.apply(event)
+            }
+        }
+    }
+
+    private func apply(_ event: CardEvent) {
+        switch event {
+        case .activity(let id, .transcribing):
+            turns.append(ChatTurn(id: id, source: .call, step: .transcribing))
+        case .activity(let id, .asked(let text)):
+            turns.append(ChatTurn(id: id, source: .user, step: .thinking, question: text))
+        case .activity(let id, .heard(let text)):
+            update(id) { $0.question = text }
+        case .activity(let id, .thinking):
+            update(id) { $0.step = .thinking }
+        case .activity(let id, .skipped(let reason)):
+            update(id) { $0.step = .skipped(reason) }
+        case .answerStarted(let id, let question):
+            update(id) {
+                $0.step = .answering
+                if $0.question == nil { $0.question = question }
+            }
+        case .answerDelta(let id, let text):
+            update(id) { $0.answer += text }
+        case .kbLookup(let id):
+            update(id) { $0.step = .searching }
+        case .answerFinished(let id, let latency):
+            update(id) {
+                $0.step = .done
+                $0.latency = latency
+            }
+        case .usage(_, let usage):
+            sessionUsage.add(usage)
+            sessionCost = SessionCost(usd: sessionUsage.cost(price: activePrice))
+        case .answerFailed(let id, let message):
+            update(id) {
+                $0.step = .done
+                $0.error = Loc.coreMessage(message)
+            }
+        }
+        pruneSkipped()
+        if turns.count > Self.maxTurns { turns.removeFirst(turns.count - Self.maxTurns) }
+    }
+
+    private func update(_ id: UUID, _ change: (inout ChatTurn) -> Void) {
+        guard let i = turns.firstIndex(where: { $0.id == id }) else { return }
+        change(&turns[i])
+    }
+
+    /// Skipped chatter stays visible only while it is among the newest few turns.
+    private func pruneSkipped() {
+        let keepFrom = max(0, turns.count - 3)
+        turns = turns.enumerated().filter { $0.offset >= keepFrom || !$0.element.isSkipped }.map(\.element)
+    }
+
+    /// The app was first built as "ZoomAssistant"; carry a key saved under that name over once.
+    private func migrateKeyFromOldName() {
+        let old = KeychainStore(service: "local.zoomassistant.app")
+        guard !hasAPIKey, let key = old.read(Self.apiKeyAccount) else { return }
+        guard (try? keychain.write(key, account: Self.apiKeyAccount)) != nil else { return }
+        old.delete(Self.apiKeyAccount)
+    }
+}

@@ -1,0 +1,83 @@
+import AppKit
+import SwiftUI
+
+@main
+struct GhostlyAssistantApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    var body: some Scene {
+        MenuBarExtra("GhostlyAssistant", image: "MenuBarIcon") {
+            MenuContent(model: appDelegate.model, appDelegate: appDelegate)
+        }
+    }
+}
+
+/// Menu bar items; the first one names what it will do to the chat window right now.
+private struct MenuContent: View {
+    @ObservedObject var model: AppModel
+    let appDelegate: AppDelegate
+
+    var body: some View {
+        Button(model.isCardVisible ? L("Скрыть окно") : L("Показать окно")) { appDelegate.toggleCard() }
+            .keyboardShortcut("h", modifiers: [.option, .command]) // also registered globally by HotKey
+        Button(L("Настройки…")) { appDelegate.openSettings() }
+            .keyboardShortcut(",", modifiers: .command)
+        Divider()
+        Button(L("Выйти")) { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model = AppModel()
+    private var panel: CardPanel?
+    private var settings: SettingsWindowController?
+    private var hotKeys: [HotKey] = []
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        if let path = DebugCommandLine.transcribePath {
+            Task { await DebugCommandLine.runTranscribe(path) }
+            return
+        }
+        if let text = DebugCommandLine.askText {
+            Task { await DebugCommandLine.runAsk(text) }
+            return
+        }
+        NSApp.appearance = model.theme.appearance
+        settings = SettingsWindowController(model: model)
+        let card = ChatView(model: model) { [weak self] in self?.openSettings() }
+        let host = NSHostingView(rootView: card)
+        host.sizingOptions = [.minSize] // the user sizes the card; content fills it
+        let panel = CardPanel(contentView: host)
+        panel.ensureOnScreen()
+        panel.orderFrontRegardless()
+        self.panel = panel
+        hotKeys = [
+            HotKey.toggleCard { [weak self] in self?.toggleCard() },
+            HotKey.answerLast { [weak self] in self?.model.answerLastSkipped() }
+        ]
+        Task { await model.start() }
+        // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
+        if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
+        if ProcessInfo.processInfo.environment["GHOSTLY_FOCUS_CHAT"] == "1" {
+            NSApp.activate()
+            panel.makeKey()
+        }
+    }
+
+    func toggleCard() {
+        guard let panel else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            panel.ensureOnScreen()
+            panel.orderFrontRegardless()
+        }
+        model.isCardVisible = panel.isVisible
+    }
+
+    func openSettings() {
+        settings?.show()
+    }
+}

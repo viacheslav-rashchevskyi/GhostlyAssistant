@@ -1,0 +1,59 @@
+import AppKit
+
+/// Floating, resizable card that stays above other windows and is excluded from screen capture where macOS allows it.
+/// Borderless, so the only visible edge is the rounded card drawn by the SwiftUI content; edges still resize it.
+final class CardPanel: NSPanel {
+    static let cornerRadius: CGFloat = 22
+
+    init(contentView: NSView) {
+        // Clip to the rounded shape, so nothing rectangular (focus rings, key-window backgrounds)
+        // can show outside the corners.
+        contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = Self.cornerRadius
+        contentView.layer?.cornerCurve = .continuous
+        contentView.layer?.masksToBounds = true
+        contentView.focusRingType = .none
+        super.init(
+            contentRect: Self.defaultFrame(),
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        isFloatingPanel = true
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        excludeFromCapture()
+        isMovableByWindowBackground = true
+        backgroundColor = .clear
+        isOpaque = false
+        hasShadow = true // a transparent window's shadow follows the rounded content
+        hidesOnDeactivate = false
+        minSize = NSSize(width: 300, height: 220)
+        self.contentView = contentView
+        setFrameAutosaveName("AssistantChat")
+    }
+
+    override var canBecomeKey: Bool { true }
+
+    /// No clamping to the visible area: the card may sit over the menu bar, the Dock or straddle displays.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
+    /// Brings the card back to the default corner if it was dragged entirely off every display.
+    func ensureOnScreen() {
+        let visible = NSScreen.screens.contains { $0.frame.intersection(frame).width >= 40 && $0.frame.intersection(frame).height >= 40 }
+        if !visible { setFrame(Self.defaultFrame(), display: true) }
+    }
+
+    private static func defaultFrame() -> NSRect {
+        let size = NSSize(width: 340, height: 600)
+        guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
+        return NSRect(
+            x: visible.maxX - size.width - 16,
+            y: visible.maxY - size.height - 16,
+            width: size.width,
+            height: size.height
+        )
+    }
+}
