@@ -6,11 +6,12 @@ enum TranscriberError: Error {
     case notLoaded
 }
 
-/// Local speech recognition with Whisper large-v3-turbo.
+/// Local speech recognition with a downloadable Whisper model (see `WhisperCatalog`).
 actor WhisperTranscriber: SpeechTranscribing {
-    static let variant = "large-v3-v20240930_626MB"
+    static let repoPrefix = "openai_whisper-"
 
     private var kit: WhisperKit?
+    private(set) var loadedVariant: String?
     /// Language of the call audio; nil lets Whisper detect it.
     private var callLanguage: String? = "uk"
 
@@ -19,17 +20,18 @@ actor WhisperTranscriber: SpeechTranscribing {
             .appendingPathComponent("GhostlyAssistant/Models", isDirectory: true)
     }
 
-    func load(progress: @escaping @Sendable (Double) -> Void) async throws {
-        guard kit == nil else { return }
+    /// Loads `variant`, downloading it first if needed; a no-op when it is already loaded.
+    func load(variant: String, progress: @escaping @Sendable (Double) -> Void) async throws {
+        guard loadedVariant != variant || kit == nil else { return }
         let folder: URL
-        if let local = Self.localModelFolder() {
+        if let local = Self.installedFolder(variant) {
             folder = local
         } else {
-            folder = try await WhisperKit.download(variant: Self.variant, downloadBase: Self.modelsBase) { p in
-                progress(p.fractionCompleted)
-            }
+            folder = try await Self.download(variant, progress: progress)
         }
         progress(1)
+        kit = nil
+        loadedVariant = nil
         kit = try await WhisperKit(WhisperKitConfig(
             modelFolder: folder.path,
             verbose: false,
@@ -38,6 +40,7 @@ actor WhisperTranscriber: SpeechTranscribing {
             load: true,
             download: false
         ))
+        loadedVariant = variant
     }
 
     func setCallLanguage(_ code: String?) {
@@ -65,14 +68,25 @@ actor WhisperTranscriber: SpeechTranscribing {
         return results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// A previously downloaded model folder, so launches work offline.
-    private static func localModelFolder() -> URL? {
+    // MARK: Model files
+
+    static func download(_ variant: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
+        try await WhisperKit.download(variant: variant, downloadBase: modelsBase) { p in
+            progress(p.fractionCompleted)
+        }
+    }
+
+    /// The folder of a fully downloaded model, so launches work offline.
+    static func installedFolder(_ variant: String) -> URL? {
         let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: modelsBase, includingPropertiesForKeys: nil) else { return nil }
-        for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(variant) {
-            let encoder = url.appendingPathComponent("AudioEncoder.mlmodelc")
-            if fm.fileExists(atPath: encoder.path) { return url }
+        guard let walker = fm.enumerator(at: modelsBase, includingPropertiesForKeys: nil) else { return nil }
+        for case let url as URL in walker where url.lastPathComponent == repoPrefix + variant {
+            if fm.fileExists(atPath: url.appendingPathComponent("AudioEncoder.mlmodelc").path) { return url }
         }
         return nil
+    }
+
+    static func delete(_ variant: String) throws {
+        if let folder = installedFolder(variant) { try FileManager.default.removeItem(at: folder) }
     }
 }

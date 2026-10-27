@@ -63,6 +63,22 @@ final class AppModel: ObservableObject {
             Task { await whisper.setCallLanguage(callLanguage.code) }
         }
     }
+    @Published var claudeModel: ClaudeModel = UserDefaults.standard.string(forKey: "claudeModel").flatMap(ClaudeModel.init(rawValue:)) ?? .haiku {
+        didSet {
+            UserDefaults.standard.set(claudeModel.rawValue, forKey: "claudeModel")
+            let model = claudeModel
+            Task {
+                await pipeline?.setModel(model)
+                await knowledgeStore?.setModel(model)
+                await knowledgeStore?.prewarm()
+            }
+        }
+    }
+    @Published private(set) var whisperVariant = UserDefaults.standard.string(forKey: "whisperModel") ?? WhisperCatalog.recommended
+    @Published private(set) var installedWhisper: Set<String> = []
+    @Published private(set) var whisperDownloads: [String: Double] = [:]
+    @Published private(set) var whisperLoading: String?
+    @Published private(set) var whisperError: String?
     @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
         didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
     }
@@ -96,14 +112,17 @@ final class AppModel: ObservableObject {
         do {
             status = .downloadingModel(0)
             await whisper.setCallLanguage(callLanguage.code)
-            try await whisper.load { [weak self] p in
+            refreshInstalledWhisper()
+            try await whisper.load(variant: whisperVariant) { [weak self] p in
                 Task { @MainActor in
                     guard let self, case .downloadingModel = self.status else { return }
                     self.status = .downloadingModel(p)
                 }
             }
+            refreshInstalledWhisper()
             let client = ClaudeClient(apiKey: key)
             let store = KnowledgeStore(api: client)
+            await store.setModel(claudeModel)
             knowledgeStore = store
             let pipeline = AssistantPipeline(
                 transcriber: whisper,
@@ -111,6 +130,7 @@ final class AppModel: ObservableObject {
                 claude: client,
                 knowledge: store
             )
+            await pipeline.setModel(claudeModel)
             install(pipeline)
             Task { await reloadKnowledge() }
             if !captureRunning {
@@ -137,6 +157,63 @@ final class AppModel: ObservableObject {
     func ask(_ text: String) {
         guard let pipeline, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task { await pipeline.ask(text) }
+    }
+
+    // MARK: Whisper models
+
+    var whisperFolder: URL { WhisperTranscriber.modelsBase }
+
+    func refreshInstalledWhisper() {
+        installedWhisper = Set(WhisperCatalog.models.map(\.variant).filter { WhisperTranscriber.installedFolder($0) != nil })
+    }
+
+    func downloadWhisper(_ variant: String) {
+        guard whisperDownloads[variant] == nil else { return }
+        whisperError = nil
+        whisperDownloads[variant] = 0
+        Task {
+            do {
+                _ = try await WhisperTranscriber.download(variant) { [weak self] p in
+                    Task { @MainActor in
+                        if self?.whisperDownloads[variant] != nil { self?.whisperDownloads[variant] = p }
+                    }
+                }
+            } catch {
+                whisperError = "Не удалось скачать модель: \(error.localizedDescription)"
+            }
+            whisperDownloads[variant] = nil
+            refreshInstalledWhisper()
+        }
+    }
+
+    /// Switches recognition to `variant`, downloading it first when needed.
+    func selectWhisper(_ variant: String) {
+        guard variant != whisperVariant, whisperLoading == nil else { return }
+        whisperError = nil
+        whisperLoading = variant
+        if !installedWhisper.contains(variant) { whisperDownloads[variant] = 0 }
+        Task {
+            do {
+                try await whisper.load(variant: variant) { [weak self] p in
+                    Task { @MainActor in
+                        if self?.whisperDownloads[variant] != nil { self?.whisperDownloads[variant] = p }
+                    }
+                }
+                whisperVariant = variant
+                UserDefaults.standard.set(variant, forKey: "whisperModel")
+            } catch {
+                whisperError = "Не удалось загрузить модель: \(error.localizedDescription)"
+            }
+            whisperDownloads[variant] = nil
+            whisperLoading = nil
+            refreshInstalledWhisper()
+        }
+    }
+
+    func deleteWhisper(_ variant: String) {
+        guard variant != whisperVariant else { return }
+        try? WhisperTranscriber.delete(variant)
+        refreshInstalledWhisper()
     }
 
     // MARK: Knowledge base

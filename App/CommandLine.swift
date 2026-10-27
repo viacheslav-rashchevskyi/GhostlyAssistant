@@ -15,7 +15,7 @@ enum DebugCommandLine {
             let samples = try loadSamples(URL(fileURLWithPath: path))
             let whisper = WhisperTranscriber()
             let loadStart = Date()
-            try await whisper.load { p in
+            try await whisper.load(variant: UserDefaults.standard.string(forKey: "whisperModel") ?? WhisperCatalog.recommended) { p in
                 FileHandle.standardError.write(Data("download \(Int(p * 100))%\r".utf8))
             }
             print("model loaded in \(String(format: "%.1f", Date().timeIntervalSince(loadStart))) s")
@@ -66,7 +66,11 @@ extension DebugCommandLine {
         let paths = (UserDefaults.standard.stringArray(forKey: "knowledgePaths") ?? []).map { URL(fileURLWithPath: $0) }
         let kb = await store.configure(paths)
         print("knowledge: \(kb.mode) \(kb.tokens) tokens, skipped \(kb.skipped)")
+        let model = UserDefaults.standard.string(forKey: "claudeModel").flatMap(ClaudeModel.init(rawValue:)) ?? .haiku
+        print("model: \(model.rawValue)")
+        await store.setModel(model)
         let pipeline = AssistantPipeline(transcriber: FixedTranscript(text: text), screenshots: ScreenshotService(), claude: client, knowledge: store)
+        await pipeline.setModel(model)
         let printer = Task {
             for await event in pipeline.events {
                 switch event {

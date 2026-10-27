@@ -16,7 +16,7 @@ final class SettingsWindowController {
     func show() {
         if window == nil {
             let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 520, height: 660),
+                contentRect: NSRect(x: 0, y: 0, width: 540, height: 820),
                 styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView, .resizable],
                 backing: .buffered,
                 defer: false
@@ -49,7 +49,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsHeader(status: model.status)
                 APIKeyCard(model: model)
+                ClaudeModelCard(model: model)
                 SpeechCard(model: model)
+                WhisperModelCard(model: model)
                 KnowledgeCard(model: model)
                 ScreenShareCard()
             }
@@ -177,6 +179,201 @@ private struct APIKeyCard: View {
         model.saveAPIKey(key)
         key = ""
         withAnimation(.smooth) { editing = false }
+    }
+}
+
+// MARK: - Claude model
+
+private struct ClaudeModelCard: View {
+    @ObservedObject var model: AppModel
+
+    private struct Option {
+        let model: ClaudeModel
+        let title: String
+        let note: String
+        let price: String
+    }
+
+    private let options = [
+        Option(model: .haiku, title: "Haiku 5.5", note: "Самая быстрая — для живого звонка", price: "$0,10 / $0,50"),
+        Option(model: .sonnet, title: "Sonnet 5.5", note: "Умнее, отвечает медленнее", price: "$2 / $10"),
+        Option(model: .opus, title: "Opus 5.5", note: "Самая умная и самая медленная", price: "$4 / $20")
+    ]
+
+    var body: some View {
+        SettingsCard(icon: "sparkles", tint: .orange, title: "Модель Claude",
+                     subtitle: "Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход") {
+            VStack(spacing: 6) {
+                ForEach(options, id: \.model) { option in
+                    SelectableRow(selected: model.claudeModel == option.model) {
+                        withAnimation(.smooth) { model.claudeModel = option.model }
+                    } content: {
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 6) {
+                                Text(option.title).font(.body.weight(.medium))
+                                if option.model == .haiku { Badge(text: "рекомендуется", color: .green) }
+                            }
+                            Text(option.note).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(option.price).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A row that highlights when chosen, with a radio marker on the left.
+private struct SelectableRow<Content: View>: View {
+    let selected: Bool
+    let action: () -> Void
+    @ViewBuilder var content: Content
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(selected ? AnyShapeStyle(accent) : AnyShapeStyle(Color.secondary))
+                    .contentTransition(.symbolEffect(.replace))
+                content
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(selected ? Color.purple.opacity(0.16) : Color.white.opacity(hovering ? 0.07 : 0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(selected ? AnyShapeStyle(accent.opacity(0.7)) : AnyShapeStyle(Color.clear), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.smooth(duration: 0.15), value: hovering)
+    }
+}
+
+private struct Badge: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .foregroundStyle(color)
+            .background(Capsule().fill(color.opacity(0.15)))
+    }
+}
+
+// MARK: - Whisper model
+
+private struct WhisperModelCard: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        SettingsCard(icon: "cpu", tint: .indigo, title: "Модель распознавания",
+                     subtitle: "Версия Whisper. Крупнее — точнее, но медленнее") {
+            VStack(spacing: 6) {
+                ForEach(WhisperCatalog.models) { info in
+                    WhisperRow(info: info, model: model)
+                }
+            }
+            if let error = model.whisperError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "folder").foregroundStyle(.secondary)
+                Text(model.whisperFolder.path(percentEncoded: false))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                Spacer()
+                Button {
+                    try? FileManager.default.createDirectory(at: model.whisperFolder, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(model.whisperFolder)
+                } label: {
+                    Label("Открыть", systemImage: "folder.fill")
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .help("Открыть папку с моделями в Finder")
+            }
+        }
+        .onAppear { model.refreshInstalledWhisper() }
+    }
+}
+
+private struct WhisperRow: View {
+    let info: WhisperModelInfo
+    @ObservedObject var model: AppModel
+
+    private var selected: Bool { model.whisperVariant == info.variant }
+    private var installed: Bool { model.installedWhisper.contains(info.variant) }
+    private var progress: Double? { model.whisperDownloads[info.variant] }
+    private var loading: Bool { model.whisperLoading == info.variant }
+
+    var body: some View {
+        SelectableRow(selected: selected) {
+            model.selectWhisper(info.variant)
+        } content: {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
+                    Text(info.title).font(.body.weight(.medium))
+                    if info.variant == WhisperCatalog.recommended { Badge(text: "рекомендуется", color: .green) }
+                }
+                Text(info.note).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            status
+        }
+        .disabled(model.whisperLoading != nil && !loading)
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        HStack(spacing: 8) {
+            if let progress {
+                ProgressView(value: progress).frame(width: 60)
+                Text("\(Int(progress * 100))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            } else if loading {
+                ProgressView().controlSize(.small)
+                Text("загружаю").font(.caption).foregroundStyle(.secondary)
+            } else if selected {
+                Badge(text: "выбрана", color: .purple)
+            } else if installed {
+                Badge(text: "скачана", color: .blue)
+                Button {
+                    model.deleteWhisper(info.variant)
+                } label: {
+                    Image(systemName: "trash").font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Удалить с диска")
+            } else {
+                Button {
+                    model.downloadWhisper(info.variant)
+                } label: {
+                    Label("Скачать", systemImage: "arrow.down.circle")
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+            }
+            Text(info.sizeLabel)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: 54, alignment: .trailing)
+        }
     }
 }
 
