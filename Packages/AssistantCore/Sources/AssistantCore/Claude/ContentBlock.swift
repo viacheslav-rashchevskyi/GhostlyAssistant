@@ -44,10 +44,13 @@ public enum ContentBlock: Codable, Equatable, Sendable {
     /// A PDF sent inline; used where Files API references aren't accepted (token counting).
     case pdf(Data, title: String)
     case toolUse(id: String, name: String, input: JSONValue)
+    /// Returned unchanged in a tool loop, as the API requires.
+    case thinking(text: String, signature: String)
+    case redactedThinking(data: String)
     case toolResult(toolUseId: String, content: [ContentBlock], isError: Bool = false)
 
     private enum Key: String, CodingKey {
-        case type, text, source, title, id, name, input, content
+        case type, text, source, title, id, name, input, content, thinking, signature, data
         case cacheControl = "cache_control"
         case toolUseId = "tool_use_id"
         case isError = "is_error"
@@ -96,6 +99,13 @@ public enum ContentBlock: Codable, Equatable, Sendable {
             try c.encode(id, forKey: .id)
             try c.encode(name, forKey: .name)
             try c.encode(input, forKey: .input)
+        case .thinking(let text, let signature):
+            try c.encode("thinking", forKey: .type)
+            try c.encode(text, forKey: .thinking)
+            try c.encode(signature, forKey: .signature)
+        case .redactedThinking(let data):
+            try c.encode("redacted_thinking", forKey: .type)
+            try c.encode(data, forKey: .data)
         case .toolResult(let toolUseId, let content, let isError):
             try c.encode("tool_result", forKey: .type)
             try c.encode(toolUseId, forKey: .toolUseId)
@@ -127,6 +137,11 @@ public enum ContentBlock: Codable, Equatable, Sendable {
             self = .toolUse(id: try c.decode(String.self, forKey: .id),
                             name: try c.decode(String.self, forKey: .name),
                             input: try c.decode(JSONValue.self, forKey: .input))
+        case "thinking":
+            self = .thinking(text: try c.decodeIfPresent(String.self, forKey: .thinking) ?? "",
+                             signature: try c.decodeIfPresent(String.self, forKey: .signature) ?? "")
+        case "redacted_thinking":
+            self = .redactedThinking(data: try c.decodeIfPresent(String.self, forKey: .data) ?? "")
         case "tool_result":
             self = .toolResult(toolUseId: try c.decode(String.self, forKey: .toolUseId),
                                content: try c.decodeIfPresent([ContentBlock].self, forKey: .content) ?? [],

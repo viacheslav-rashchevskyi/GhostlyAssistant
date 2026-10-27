@@ -165,10 +165,12 @@ public actor AssistantPipeline {
         await answer(ctx, id: id, startedAt: start)
     }
 
-    private struct PendingTool {
-        let id: String
-        let name: String
-        var json = ""
+    /// One content block of a streamed round, rebuilt so the assistant turn can be replayed verbatim.
+    private enum RoundBlock {
+        case text(String)
+        case thinking(text: String, signature: String)
+        case redacted(String)
+        case tool(id: String, name: String, json: String)
     }
 
     private func answer(_ ctx: AnswerContext, id: UUID, startedAt: Date) async {
@@ -193,11 +195,12 @@ public actor AssistantPipeline {
             for round in 0...Self.maxToolRounds {
                 let requestAt = now()
                 var roundText = ""
-                var pending: [Int: PendingTool] = [:]
+                var blocks: [Int: RoundBlock] = [:]
                 stopReason = nil
                 for try await event in claude.streamMessage(request) {
                     switch event {
-                    case .textDelta(_, let t):
+                    case .textDelta(let index, let t):
+                        if case .text(let so)? = blocks[index] { blocks[index] = .text(so + t) } else { blocks[index] = .text(t) }
                         if roundText.isEmpty {
                             Self.log.info("claude first token \(self.now().timeIntervalSince(requestAt), format: .fixed(precision: 2))s")
                         }
@@ -217,9 +220,17 @@ public actor AssistantPipeline {
                             continuation.yield(.answerDelta(id: id, text: s))
                         }
                     case .toolUseStart(let index, let toolId, let name):
-                        pending[index] = PendingTool(id: toolId, name: name)
+                        blocks[index] = .tool(id: toolId, name: name, json: "")
                     case .inputJSONDelta(let index, let part):
-                        pending[index]?.json += part
+                        if case .tool(let toolId, let name, let json)? = blocks[index] { blocks[index] = .tool(id: toolId, name: name, json: json + part) }
+                    case .thinkingStart(let index):
+                        blocks[index] = .thinking(text: "", signature: "")
+                    case .thinkingDelta(let index, let t):
+                        if case .thinking(let so, let sig)? = blocks[index] { blocks[index] = .thinking(text: so + t, signature: sig) }
+                    case .signatureDelta(let index, let part):
+                        if case .thinking(let so, let sig)? = blocks[index] { blocks[index] = .thinking(text: so, signature: sig + part) }
+                    case .redactedThinking(let index, let data):
+                        blocks[index] = .redacted(data)
                     case .messageStart(let input, let cacheRead):
                         usage.add(TokenUsage(inputTokens: input, cacheReadTokens: cacheRead))
                     case .messageDelta(let reason, let tokens):
@@ -230,15 +241,25 @@ public actor AssistantPipeline {
                         break
                     }
                 }
-                guard stopReason == "tool_use", !pending.isEmpty, round < Self.maxToolRounds else { break }
+                let hasTools = blocks.values.contains { if case .tool = $0 { true } else { false } }
+                guard stopReason == "tool_use", hasTools, round < Self.maxToolRounds else { break }
                 continuation.yield(.kbLookup(id: id))
-                let uses = pending.keys.sorted().compactMap { pending[$0] }
-                var assistant: [ContentBlock] = roundText.isEmpty ? [] : [.text(roundText)]
+                // Replay the whole assistant turn in its original order, thinking blocks included.
+                var assistant: [ContentBlock] = []
                 var results: [ContentBlock] = []
-                for use in uses {
-                    let input = (try? JSONDecoder().decode(JSONValue.self, from: Data(use.json.utf8))) ?? .object([:])
-                    assistant.append(.toolUse(id: use.id, name: use.name, input: input))
-                    results.append(.toolResult(toolUseId: use.id, content: await knowledge.execute(tool: use.name, input: input)))
+                for index in blocks.keys.sorted() {
+                    switch blocks[index]! {
+                    case .text(let t):
+                        assistant.append(.text(t))
+                    case .thinking(let t, let sig):
+                        assistant.append(.thinking(text: t, signature: sig))
+                    case .redacted(let data):
+                        assistant.append(.redactedThinking(data: data))
+                    case .tool(let toolId, let name, let json):
+                        let input = (try? JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))) ?? .object([:])
+                        assistant.append(.toolUse(id: toolId, name: name, input: input))
+                        results.append(.toolResult(toolUseId: toolId, content: await knowledge.execute(tool: name, input: input)))
+                    }
                 }
                 request = RequestBuilder.continuing(request, assistant: assistant, toolResults: results)
             }
