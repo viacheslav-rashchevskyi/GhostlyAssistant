@@ -130,7 +130,7 @@ private struct SettingsCard<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 18))
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.raised)) // flat: one glass layer (the window) is enough
     }
 }
 
@@ -324,7 +324,8 @@ private struct SelectableRow<Content: View>: View {
     }
 }
 
-/// The model in use: a quiet live dot instead of another chip, since the row is already highlighted.
+/// The model in use: a quiet green dot instead of another chip, since the row is already highlighted.
+/// Static on purpose: an endless animation re-renders the glass window every frame.
 private struct ActiveStatus: View {
     var body: some View {
         HStack(spacing: 5) {
@@ -332,7 +333,6 @@ private struct ActiveStatus: View {
                 .fill(Color.green)
                 .frame(width: 6, height: 6)
                 .shadow(color: .green.opacity(0.8), radius: 3)
-                .phaseAnimator([1.0, 0.35]) { dot, opacity in dot.opacity(opacity) } animation: { _ in .easeInOut(duration: 1.1) }
             Text(L("Активна"))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)

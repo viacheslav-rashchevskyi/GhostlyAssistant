@@ -74,7 +74,6 @@ private struct ListeningPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "waveform")
-                .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating, isActive: active)
             Text(active ? L("Слушаю") : L("Тишина"))
                 .contentTransition(.opacity)
         }
@@ -101,7 +100,7 @@ private struct Messages: View {
                 }
             }
             .padding(12)
-            .animation(.spring(duration: 0.35, bounce: 0.2), value: turns)
+            .animation(.spring(duration: 0.35, bounce: 0.2), value: turns.map(\.id)) // only on insert/remove, not on every streamed word
         }
         .scrollIndicators(.never)
         .defaultScrollAnchor(.bottom)
@@ -199,7 +198,7 @@ private struct AssistantBubble: View {
                 if turn.answer.isEmpty {
                     if turn.step == .searching {
                         HStack(spacing: 6) {
-                            Image(systemName: "doc.text.magnifyingglass").symbolEffect(.bounce, options: .repeating)
+                            Image(systemName: "doc.text.magnifyingglass")
                             Text(L("ищу в базе знаний")).foregroundStyle(.secondary)
                         }
                         .font(.callout)
@@ -312,24 +311,29 @@ private struct GhostGlyph: View {
     var pulsing = false
 
     var body: some View {
-        Image("GhostGlyph")
+        let glyph = Image("GhostGlyph")
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
             .foregroundStyle(.primary)
-            .phaseAnimator([false, true]) { content, phase in
+        // The loop exists only while pulsing: an always-running phaseAnimator redraws the window every frame.
+        if pulsing {
+            glyph.phaseAnimator([false, true]) { content, phase in
                 content
-                    .opacity(pulsing && phase ? 0.45 : 1)
-                    .offset(y: pulsing && phase ? -1.5 : 0)
+                    .opacity(phase ? 0.45 : 1)
+                    .offset(y: phase ? -1.5 : 0)
             } animation: { _ in .easeInOut(duration: 0.7) }
+        } else {
+            glyph
+        }
     }
 }
 
 /// Three bouncing dots.
 private struct TypingDots: View {
     var body: some View {
-        TimelineView(.animation) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: 4) {
                 ForEach(0..<3) { i in
@@ -353,7 +357,6 @@ private struct EmptyChat: View {
             Image(systemName: "waveform.circle")
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(Theme.accent)
-                .symbolEffect(.breathe, options: .repeating)
             Text(L("Слушаю звонок"))
                 .font(.headline)
             Text(L("Вопросы собеседников и ответы появятся здесь. Можно спросить и самому — текстом или голосом."))
@@ -394,7 +397,6 @@ private struct StatusNotice: View {
         Image(systemName: icon)
             .font(.system(size: 28, weight: .light))
             .foregroundStyle(.secondary)
-            .symbolEffect(.pulse, options: .repeating)
         Text(text)
             .font(.callout)
             .multilineTextAlignment(.center)
@@ -509,7 +511,7 @@ private struct RecordingIndicator: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TimelineView(.animation) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
                 let t = context.date.timeIntervalSinceReferenceDate
                 HStack(spacing: 2) {
                     ForEach(0..<14) { i in
