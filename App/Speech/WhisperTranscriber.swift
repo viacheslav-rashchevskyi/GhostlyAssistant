@@ -6,7 +6,7 @@ enum TranscriberError: Error {
     case notLoaded
 }
 
-/// Local Ukrainian speech recognition with Whisper large-v3-turbo.
+/// Local speech recognition with Whisper large-v3-turbo.
 actor WhisperTranscriber: SpeechTranscribing {
     static let variant = "large-v3-v20240930_626MB"
 
@@ -38,11 +38,17 @@ actor WhisperTranscriber: SpeechTranscribing {
         ))
     }
 
+    /// Call audio is Ukrainian.
     func transcribe(_ samples: [Float]) async throws -> String {
+        try await transcribe(samples, language: "uk")
+    }
+
+    /// `language` is a Whisper code: "uk" for the call, "ru" for the user's own voice questions.
+    func transcribe(_ samples: [Float], language: String) async throws -> String {
         guard let kit else { throw TranscriberError.notLoaded }
         let options = DecodingOptions(
             task: .transcribe,
-            language: "uk",
+            language: language,
             temperature: 0,
             usePrefillPrompt: true,
             detectLanguage: false,

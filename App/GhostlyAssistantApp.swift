@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         settings = SettingsWindowController(model: model)
-        let card = CardView(model: model) { [weak self] in self?.openSettings() }
+        let card = ChatView(model: model) { [weak self] in self?.openSettings() }
         let host = NSHostingView(rootView: card)
         host.sizingOptions = [.minSize] // the user sizes the card; content fills it
         let panel = CardPanel(contentView: host)

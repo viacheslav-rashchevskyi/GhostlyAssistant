@@ -24,6 +24,8 @@ public struct NoKnowledge: KnowledgeProviding {
 
 /// What the pipeline is doing with one utterance before (or instead of) answering.
 public enum Activity: Equatable, Sendable {
+    /// A question the user typed or dictated (not heard from the call).
+    case asked(String)
     case transcribing
     case heard(String)
     case thinking
@@ -109,6 +111,7 @@ public actor AssistantPipeline {
         guard !text.isEmpty else { return }
         let id = UUID()
         let start = now()
+        continuation.yield(.activity(id: id, .asked(text)))
         continuation.yield(.activity(id: id, .thinking))
         let ctx = AnswerContext(
             utterance: text,

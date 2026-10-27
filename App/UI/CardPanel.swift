@@ -23,7 +23,7 @@ final class CardPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         hidesOnDeactivate = false
-        minSize = NSSize(width: 260, height: 120)
+        minSize = NSSize(width: 300, height: 220)
         self.contentView = contentView
         setFrameAutosaveName("AssistantCard")
     }
@@ -42,7 +42,7 @@ final class CardPanel: NSPanel {
     }
 
     private static func defaultFrame() -> NSRect {
-        let size = NSSize(width: 360, height: 260)
+        let size = NSSize(width: 380, height: 480)
         guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
         return NSRect(
             x: visible.maxX - size.width - 16,

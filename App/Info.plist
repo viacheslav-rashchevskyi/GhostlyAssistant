@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>GhostlyAssistant слушает системный звук, чтобы распознавать вопросы собеседников.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон нужен, чтобы задать вопрос голосом.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>GhostlyAssistant распознаёт речь собеседников.</string>
 </dict>

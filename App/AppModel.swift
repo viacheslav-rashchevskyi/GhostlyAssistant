@@ -2,22 +2,22 @@ import AssistantCore
 import Foundation
 import os
 
-struct CardAnswer: Identifiable, Equatable {
-    let id: UUID
-    var question: String
-    var text = ""
-    var latency: Latency?
-    var lookingUpKB = false
-    var error: String?
-}
-
-/// Progress of the most recent utterance through the pipeline, for the stage bar.
-struct LiveStage: Equatable {
+/// One exchange in the chat: something heard on the call (or asked by the user) and the assistant's reply.
+struct ChatTurn: Identifiable, Equatable {
+    enum Source: Equatable { case call, user }
     enum Step: Equatable { case transcribing, thinking, searching, answering, done, skipped(SkipReason) }
 
     let id: UUID
+    var source: Source
     var step: Step
-    var heard: String?
+    var question: String?
+    var answer = ""
+    var latency: Latency?
+    var error: String?
+
+    var isSkipped: Bool {
+        if case .skipped = step { true } else { false }
+    }
 }
 
 enum CardStatus: Equatable {
@@ -28,27 +28,37 @@ enum CardStatus: Equatable {
     case error(String)
 }
 
-/// Wires capture, Whisper and the core pipeline together and holds what the card shows.
+enum MicState: Equatable {
+    case idle
+    case recording
+    case transcribing
+}
+
+/// Wires capture, Whisper and the core pipeline together and holds what the chat shows.
 @MainActor
 final class AppModel: ObservableObject {
     static let apiKeyAccount = "anthropic-api-key"
-    static let maxAnswers = 20
+    static let maxTurns = 40
 
-    @Published private(set) var answers: [CardAnswer] = []
+    @Published private(set) var turns: [ChatTurn] = []
     @Published private(set) var audioPresent = false
-    @Published private(set) var live: LiveStage?
     @Published private(set) var status: CardStatus = .ready
+    @Published private(set) var mic: MicState = .idle
+    @Published private(set) var micLevel: Float = 0
+    @Published private(set) var micError: String?
     @Published var isCardVisible = true
 
     private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
     private let keychain = KeychainStore()
     private let capture = SystemAudioCapture()
     private let whisper = WhisperTranscriber()
+    private let recorder = MicRecorder()
     private var pipeline: AssistantPipeline?
     private var eventsTask: Task<Void, Never>?
     private var captureRunning = false
 
     var hasAPIKey: Bool { !(keychain.read(Self.apiKeyAccount) ?? "").isEmpty }
+    var latestLatency: Latency? { turns.last { $0.latency != nil }?.latency }
 
     func start() async {
         migrateKeyFromOldName()
@@ -98,8 +108,52 @@ final class AppModel: ObservableObject {
     }
 
     func ask(_ text: String) {
-        guard let pipeline else { return }
+        guard let pipeline, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task { await pipeline.ask(text) }
+    }
+
+    func clearChat() {
+        turns.removeAll()
+    }
+
+    /// Push-to-talk: the first call starts recording, the second transcribes the user's Russian speech and asks it.
+    func toggleMic() {
+        switch mic {
+        case .idle:
+            Task { await startRecording() }
+        case .recording:
+            let samples = recorder.stop()
+            mic = .transcribing
+            micLevel = 0
+            Task {
+                let text = (try? await whisper.transcribe(samples, language: "ru")) ?? ""
+                mic = .idle
+                if text.isEmpty {
+                    micError = "Не расслышал, попробуйте ещё раз"
+                } else {
+                    ask(text)
+                }
+            }
+        case .transcribing:
+            break
+        }
+    }
+
+    private func startRecording() async {
+        micError = nil
+        guard await MicRecorder.requestAccess() else {
+            micError = "Нет доступа к микрофону — разрешите в Системных настройках"
+            return
+        }
+        recorder.onLevel = { [weak self] level in
+            Task { @MainActor in self?.micLevel = level }
+        }
+        do {
+            try recorder.start()
+            mic = .recording
+        } catch {
+            micError = "Микрофон недоступен: \(error.localizedDescription)"
+        }
     }
 
     private func install(_ pipeline: AssistantPipeline) {
@@ -116,36 +170,50 @@ final class AppModel: ObservableObject {
     }
 
     private func apply(_ event: CardEvent) {
-        updateLive(event)
         switch event {
-        case .activity:
-            break
+        case .activity(let id, .transcribing):
+            turns.append(ChatTurn(id: id, source: .call, step: .transcribing))
+        case .activity(let id, .asked(let text)):
+            turns.append(ChatTurn(id: id, source: .user, step: .thinking, question: text))
+        case .activity(let id, .heard(let text)):
+            update(id) { $0.question = text }
+        case .activity(let id, .thinking):
+            update(id) { $0.step = .thinking }
+        case .activity(let id, .skipped(let reason)):
+            update(id) { $0.step = .skipped(reason) }
         case .answerStarted(let id, let question):
-            if let i = index(id) {
-                answers[i].question = question
-            } else {
-                answers.append(CardAnswer(id: id, question: question))
+            update(id) {
+                $0.step = .answering
+                if $0.question == nil { $0.question = question }
             }
         case .answerDelta(let id, let text):
-            if let i = index(id) { answers[i].text += text }
+            update(id) { $0.answer += text }
         case .kbLookup(let id):
-            if let i = index(id) {
-                answers[i].lookingUpKB = true
-            } else {
-                answers.append(CardAnswer(id: id, question: "…", lookingUpKB: true))
-            }
+            update(id) { $0.step = .searching }
         case .answerFinished(let id, let latency):
-            if let i = index(id) {
-                answers[i].latency = latency
-                answers[i].lookingUpKB = false
+            update(id) {
+                $0.step = .done
+                $0.latency = latency
             }
         case .answerFailed(let id, let message):
-            if let i = index(id) {
-                answers[i].error = message
-                answers[i].lookingUpKB = false
+            update(id) {
+                $0.step = .done
+                $0.error = message
             }
         }
-        if answers.count > Self.maxAnswers { answers.removeFirst(answers.count - Self.maxAnswers) }
+        pruneSkipped()
+        if turns.count > Self.maxTurns { turns.removeFirst(turns.count - Self.maxTurns) }
+    }
+
+    private func update(_ id: UUID, _ change: (inout ChatTurn) -> Void) {
+        guard let i = turns.firstIndex(where: { $0.id == id }) else { return }
+        change(&turns[i])
+    }
+
+    /// Skipped chatter stays visible only while it is among the newest few turns.
+    private func pruneSkipped() {
+        let keepFrom = max(0, turns.count - 3)
+        turns = turns.enumerated().filter { $0.offset >= keepFrom || !$0.element.isSkipped }.map(\.element)
     }
 
     /// The app was first built as "ZoomAssistant"; carry a key saved under that name over once.
@@ -154,33 +222,5 @@ final class AppModel: ObservableObject {
         guard !hasAPIKey, let key = old.read(Self.apiKeyAccount) else { return }
         guard (try? keychain.write(key, account: Self.apiKeyAccount)) != nil else { return }
         old.delete(Self.apiKeyAccount)
-    }
-
-    /// Follows the newest utterance; events from older, still-running answers don't move the stage bar back.
-    private func updateLive(_ event: CardEvent) {
-        switch event {
-        case .activity(let id, .transcribing):
-            live = LiveStage(id: id, step: .transcribing)
-        case .activity(let id, let activity):
-            if live?.id != id { live = LiveStage(id: id, step: .thinking) }
-            switch activity {
-            case .heard(let text): live?.heard = text
-            case .thinking: live?.step = .thinking
-            case .skipped(let reason): live?.step = .skipped(reason)
-            case .transcribing: break
-            }
-        case .answerStarted(let id, _):
-            if live?.id == id { live?.step = .answering }
-        case .kbLookup(let id):
-            if live?.id == id { live?.step = .searching }
-        case .answerFinished(let id, _), .answerFailed(let id, _):
-            if live?.id == id { live?.step = .done }
-        case .answerDelta:
-            break
-        }
-    }
-
-    private func index(_ id: UUID) -> Int? {
-        answers.firstIndex { $0.id == id }
     }
 }

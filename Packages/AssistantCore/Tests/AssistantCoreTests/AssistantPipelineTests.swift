@@ -228,7 +228,7 @@ private extension Array where Element == CardEvent {
     let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "Так"), .messageStop])])
     let p = makePipeline(text: "", claude: claude)
     await p.ask("Хто?")
-    #expect(await collect(p).activities == [.thinking])
+    #expect(await collect(p).activities == [.asked("Хто?"), .thinking])
     #expect(claude.requests.count == 1)
     #expect(claude.requests[0].messages[0].content.last == .text("<typed_question>\nХто?\n</typed_question>"))
 }
