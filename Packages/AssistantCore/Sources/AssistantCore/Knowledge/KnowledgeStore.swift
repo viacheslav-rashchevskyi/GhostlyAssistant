@@ -23,6 +23,7 @@ public actor KnowledgeStore: KnowledgeProviding {
     private var documents: [KBDocument] = []
     private var index = BM25Index(documents: [])
     private var model = ClaudeModel.haiku
+    private var style = AnswerStyle()
     /// file_id per PDF, keyed by path and modification date, so re-reading doesn't re-upload.
     private var uploaded: [String: String] = [:]
 
@@ -34,6 +35,10 @@ public actor KnowledgeStore: KnowledgeProviding {
     /// Prompt caches are per model, so the prewarm must use the model that will answer.
     public func setModel(_ model: ClaudeModel) {
         self.model = model
+    }
+
+    public func setStyle(_ style: AnswerStyle) {
+        self.style = style
     }
 
     public func configure(_ urls: [URL]) async -> (mode: KBMode, tokens: Int, skipped: [String]) {
@@ -60,7 +65,7 @@ public actor KnowledgeStore: KnowledgeProviding {
 
     public func prewarm() async {
         guard mode != .none else { return }
-        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools(), model: model))
+        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools(), model: model, style: style))
     }
 
     public func payload() -> KBPayload {

@@ -78,8 +78,6 @@ public struct CountTokensRequest: Encodable, Equatable, Sendable {
 }
 
 public enum RequestBuilder {
-    static let maxTokens = 2048
-
     public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle()) -> MessagesRequest {
         var content = kbBlocks(kb)
         if !ctx.recentTranscript.isEmpty {
@@ -96,7 +94,7 @@ public enum RequestBuilder {
         content.append(.text("<\(tag)>\n\(ctx.utterance)\n</\(tag)>"))
         return MessagesRequest(
             model: model.id,
-            maxTokens: maxTokens,
+            maxTokens: model.maxTokens,
             stream: true,
             system: system(kb, style: style),
             messages: [Message(role: .user, content: content)],
@@ -114,14 +112,15 @@ public enum RequestBuilder {
         return next
     }
 
-    public static func prewarm(kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku) -> MessagesRequest {
+    /// Must build the same system prefix as `answer(...)`, or the first real question misses the warmed cache.
+    public static func prewarm(kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle()) -> MessagesRequest {
         var content = kbBlocks(kb)
         content.append(.text("<current_utterance>\n\n</current_utterance>"))
         return MessagesRequest(
             model: model.id,
             maxTokens: 0,
             stream: false,
-            system: system(kb),
+            system: system(kb, style: style),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
             thinking: model.thinking,

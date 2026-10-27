@@ -70,7 +70,11 @@ final class AppModel: ObservableObject {
             UserDefaults.standard.set(answerStyle.length.rawValue, forKey: "answerLength")
             UserDefaults.standard.set(answerStyle.custom, forKey: "answerCustom")
             let style = answerStyle
-            Task { await pipeline?.setStyle(style) }
+            Task {
+                await pipeline?.setStyle(style)
+                await knowledgeStore?.setStyle(style)
+                await knowledgeStore?.prewarm() // the system prefix changed, so warm it again
+            }
         }
     }
     @Published var fontScale: Double = UserDefaults.standard.object(forKey: "fontScale") as? Double ?? 1 {
@@ -157,6 +161,7 @@ final class AppModel: ObservableObject {
             let client = ClaudeClient(apiKey: key)
             let store = KnowledgeStore(api: client)
             await store.setModel(claudeModel)
+            await store.setStyle(answerStyle)
             knowledgeStore = store
             let pipeline = AssistantPipeline(
                 transcriber: whisper,

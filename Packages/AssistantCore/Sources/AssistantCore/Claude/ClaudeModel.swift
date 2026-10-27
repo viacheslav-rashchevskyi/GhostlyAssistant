@@ -46,6 +46,13 @@ public struct ClaudeModel: Hashable, Sendable, Identifiable {
         }
     }
 
+    /// Models that always think need room for thinking plus the answer; the rest answer within 2048.
+    var maxTokens: Int {
+        Self.alwaysThinking.contains(id) ? 8192 : 2048
+    }
+
+    private static let alwaysThinking: Set<String> = ["claude-fable-5-1", "claude-fable-5", "claude-mythos-5-1", "claude-mythos-5", "claude-opus-5-5"]
+
     /// Models that accept `output_config.effort`; others (Haiku 4.5 and older) return 400 if it is sent.
     var effort: String? {
         Self.effortModels.contains(id) ? "low" : nil

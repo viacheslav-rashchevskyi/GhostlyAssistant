@@ -10,6 +10,7 @@ public enum GateOutput: Equatable, Sendable {
 public struct AnswerGate: Sendable {
     private enum State { case waiting, suppressed, open }
 
+    private static let markup: Set<Character> = ["*", "_", "`"]
     private let sentinel: Character
     private var state = State.waiting
     private var buffer = ""
@@ -26,7 +27,8 @@ public struct AnswerGate: Sendable {
             return .emit(delta)
         case .waiting:
             buffer += delta
-            guard let first = buffer.first(where: { !$0.isWhitespace }) else { return .undecided }
+            // Markdown the model may wrap the sentinel in ("**∅**") doesn't count as an answer yet.
+            guard let first = buffer.first(where: { !$0.isWhitespace && !Self.markup.contains($0) }) else { return .undecided }
             if first == sentinel {
                 state = .suppressed
                 return .suppressed

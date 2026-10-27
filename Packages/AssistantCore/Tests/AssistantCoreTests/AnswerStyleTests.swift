@@ -51,3 +51,16 @@ private func systemTexts(_ r: MessagesRequest) -> [String] {
     try? await Task.sleep(for: .milliseconds(50))
     #expect(claude.requests.first.map(systemTexts)?.count == 2)
 }
+
+@Test func prewarmUsesTheSameSystemPrefixAsAnswers() {
+    let style = AnswerStyle(length: .brief)
+    let answer = RequestBuilder.answer(styleCtx, kb: .none, tools: [], style: style)
+    let warm = RequestBuilder.prewarm(kb: .none, tools: [], style: style)
+    #expect(warm.system == answer.system)
+}
+
+@Test func thinkingModelsGetRoomForThinkingAndAnswer() {
+    #expect(RequestBuilder.answer(styleCtx, kb: .none, tools: [], model: .haiku).maxTokens == 2048)
+    #expect(RequestBuilder.answer(styleCtx, kb: .none, tools: [], model: .opus).maxTokens >= 8192)
+    #expect(RequestBuilder.answer(styleCtx, kb: .none, tools: [], model: ClaudeModel(id: "claude-fable-5-1")).maxTokens >= 8192)
+}

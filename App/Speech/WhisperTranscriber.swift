@@ -52,8 +52,22 @@ actor WhisperTranscriber: SpeechTranscribing {
         try await transcribe(samples, language: callLanguage)
     }
 
+    /// The previous transcription; each new one waits for it so jobs run one at a time, in arrival order.
+    private var tail: Task<Void, Never>?
+
     /// `language` is a Whisper code such as "uk" or "ru"; nil detects the language from the audio.
+    /// Calls are serialized: the actor is reentrant at `await`, and one WhisperKit instance must not decode in parallel.
     func transcribe(_ samples: [Float], language: String?) async throws -> String {
+        let previous = tail
+        let job = Task {
+            await previous?.value
+            return try await self.decode(samples, language: language)
+        }
+        tail = Task { _ = try? await job.value }
+        return try await job.value
+    }
+
+    private func decode(_ samples: [Float], language: String?) async throws -> String {
         guard let kit else { throw TranscriberError.notLoaded }
         let options = DecodingOptions(
             task: .transcribe,
