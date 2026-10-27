@@ -34,6 +34,7 @@ final class SettingsWindowController {
             window = w
         }
         NSApp.activate()
+        if window?.isMiniaturized == true { window?.deminiaturize(nil) }
         window?.makeKeyAndOrderFront(nil)
     }
 }
