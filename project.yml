@@ -24,7 +24,8 @@ targets:
         PRODUCT_NAME: GhostlyAssistant
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/GhostlyAssistant.entitlements
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 3Q7L57P544
         CODE_SIGN_STYLE: Manual
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
