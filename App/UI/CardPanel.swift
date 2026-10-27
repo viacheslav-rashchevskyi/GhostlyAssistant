@@ -3,7 +3,14 @@ import AppKit
 /// Floating, resizable card that stays above other windows and is excluded from screen capture where macOS allows it.
 /// Borderless, so the only visible edge is the rounded glass drawn by the SwiftUI content; edges still resize it.
 final class CardPanel: NSPanel {
+    static let cornerRadius: CGFloat = 22
+
+    /// Wraps `contentView` in rounded system glass; the rounding clips the backdrop blur too.
     init(contentView: NSView) {
+        let glass = NSGlassEffectView()
+        glass.cornerRadius = Self.cornerRadius
+        glass.tintColor = NSColor.black.withAlphaComponent(0.65)
+        glass.contentView = contentView
         super.init(
             contentRect: Self.defaultFrame(),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -17,10 +24,10 @@ final class CardPanel: NSPanel {
         isMovableByWindowBackground = true
         backgroundColor = .clear
         isOpaque = false
-        hasShadow = false // the SwiftUI glass draws its own rounded shadow
+        hasShadow = false // the window shadow is rectangular; the glass has its own rounded edge
         hidesOnDeactivate = false
-        minSize = NSSize(width: 328, height: 248)
-        self.contentView = contentView
+        minSize = NSSize(width: 300, height: 220)
+        self.contentView = glass
         setFrameAutosaveName("AssistantChat")
     }
 
@@ -38,11 +45,11 @@ final class CardPanel: NSPanel {
     }
 
     private static func defaultFrame() -> NSRect {
-        let size = NSSize(width: 368, height: 628)
+        let size = NSSize(width: 340, height: 600)
         guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
         return NSRect(
-            x: visible.maxX - size.width - 2,
-            y: visible.maxY - size.height - 2,
+            x: visible.maxX - size.width - 16,
+            y: visible.maxY - size.height - 16,
             width: size.width,
             height: size.height
         )
