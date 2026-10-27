@@ -11,6 +11,8 @@ actor WhisperTranscriber: SpeechTranscribing {
     static let variant = "large-v3-v20240930_626MB"
 
     private var kit: WhisperKit?
+    /// Language of the call audio; nil lets Whisper detect it.
+    private var callLanguage: String? = "uk"
 
     static var modelsBase: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -38,20 +40,24 @@ actor WhisperTranscriber: SpeechTranscribing {
         ))
     }
 
-    /// Call audio is Ukrainian.
-    func transcribe(_ samples: [Float]) async throws -> String {
-        try await transcribe(samples, language: "uk")
+    func setCallLanguage(_ code: String?) {
+        callLanguage = code
     }
 
-    /// `language` is a Whisper code: "uk" for the call, "ru" for the user's own voice questions.
-    func transcribe(_ samples: [Float], language: String) async throws -> String {
+    /// Call audio, in the language chosen in settings.
+    func transcribe(_ samples: [Float]) async throws -> String {
+        try await transcribe(samples, language: callLanguage)
+    }
+
+    /// `language` is a Whisper code such as "uk" or "ru"; nil detects the language from the audio.
+    func transcribe(_ samples: [Float], language: String?) async throws -> String {
         guard let kit else { throw TranscriberError.notLoaded }
         let options = DecodingOptions(
             task: .transcribe,
             language: language,
             temperature: 0,
             usePrefillPrompt: true,
-            detectLanguage: false,
+            detectLanguage: language == nil,
             skipSpecialTokens: true,
             withoutTimestamps: true
         )

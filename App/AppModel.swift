@@ -57,6 +57,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var micError: String?
     @Published var isCardVisible = true
     @Published private(set) var knowledge = KnowledgeState()
+    @Published var callLanguage: SpeechLanguage = AppModel.storedLanguage("callLanguage", default: .uk) {
+        didSet {
+            UserDefaults.standard.set(callLanguage.rawValue, forKey: "callLanguage")
+            Task { await whisper.setCallLanguage(callLanguage.code) }
+        }
+    }
+    @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
+        didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
+    }
 
     private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
     private let keychain = KeychainStore()
@@ -86,6 +95,7 @@ final class AppModel: ObservableObject {
         }
         do {
             status = .downloadingModel(0)
+            await whisper.setCallLanguage(callLanguage.code)
             try await whisper.load { [weak self] p in
                 Task { @MainActor in
                     guard let self, case .downloadingModel = self.status else { return }
@@ -158,6 +168,10 @@ final class AppModel: ObservableObject {
         await store.prewarm()
     }
 
+    private static func storedLanguage(_ key: String, default fallback: SpeechLanguage) -> SpeechLanguage {
+        UserDefaults.standard.string(forKey: key).flatMap(SpeechLanguage.init(rawValue:)) ?? fallback
+    }
+
     private func savedKnowledgePaths() -> [URL] {
         (UserDefaults.standard.stringArray(forKey: Self.knowledgePathsKey) ?? []).map { URL(fileURLWithPath: $0) }
     }
@@ -171,7 +185,7 @@ final class AppModel: ObservableObject {
         turns.removeAll()
     }
 
-    /// Push-to-talk: the first call starts recording, the second transcribes the user's Russian speech and asks it.
+    /// Push-to-talk: the first call starts recording, the second transcribes it in the user's language and asks it.
     func toggleMic() {
         switch mic {
         case .idle:
@@ -181,7 +195,7 @@ final class AppModel: ObservableObject {
             mic = .transcribing
             micLevel = 0
             Task {
-                let text = (try? await whisper.transcribe(samples, language: "ru")) ?? ""
+                let text = (try? await whisper.transcribe(samples, language: micLanguage.code)) ?? ""
                 mic = .idle
                 if text.isEmpty {
                     micError = "Не расслышал, попробуйте ещё раз"

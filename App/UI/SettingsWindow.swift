@@ -49,6 +49,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsHeader(status: model.status)
                 APIKeyCard(model: model)
+                SpeechCard(model: model)
                 KnowledgeCard(model: model)
                 ScreenShareCard()
             }
@@ -176,6 +177,53 @@ private struct APIKeyCard: View {
         model.saveAPIKey(key)
         key = ""
         withAnimation(.smooth) { editing = false }
+    }
+}
+
+// MARK: - Speech
+
+private struct SpeechCard: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        SettingsCard(icon: "waveform", tint: .pink, title: "Распознавание речи",
+                     subtitle: "Whisper работает на Mac, без интернета") {
+            LanguageRow(icon: "person.wave.2.fill", title: "Собеседники в звонке",
+                        hint: "Что слушает Whisper из звука Zoom", selection: $model.callLanguage)
+            Divider().opacity(0.3)
+            LanguageRow(icon: "mic.fill", title: "Ваш голос",
+                        hint: "Вопросы, которые вы задаёте кнопкой микрофона", selection: $model.micLanguage)
+            Text("Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct LanguageRow: View {
+    let icon: String
+    let title: String
+    let hint: String
+    @Binding var selection: SpeechLanguage
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(accent)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                Text(hint).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Picker(title, selection: $selection) {
+                ForEach(SpeechLanguage.allCases) { Text($0.title).tag($0) }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+        }
     }
 }
 
