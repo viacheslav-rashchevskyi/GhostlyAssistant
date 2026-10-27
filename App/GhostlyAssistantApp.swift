@@ -7,17 +7,30 @@ struct GhostlyAssistantApp: App {
 
     var body: some Scene {
         MenuBarExtra("GhostlyAssistant", image: "MenuBarIcon") {
-            Button("Показать / скрыть карточку") { appDelegate.toggleCard() }
-            Button("Настройки…") { appDelegate.openSettings() }
-            Divider()
-            Button("Выйти") { NSApp.terminate(nil) }
+            MenuContent(model: appDelegate.model, appDelegate: appDelegate)
         }
+    }
+}
+
+/// Menu bar items; the first one names what it will do to the chat window right now.
+private struct MenuContent: View {
+    @ObservedObject var model: AppModel
+    let appDelegate: AppDelegate
+
+    var body: some View {
+        Button(model.isCardVisible ? "Скрыть окно" : "Показать окно") { appDelegate.toggleCard() }
+            .keyboardShortcut("h", modifiers: [.option, .command]) // also registered globally by HotKey
+        Button("Настройки…") { appDelegate.openSettings() }
+            .keyboardShortcut(",", modifiers: .command)
+        Divider()
+        Button("Выйти") { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let model = AppModel()
+    let model = AppModel()
     private var panel: CardPanel?
     private var settings: SettingsWindowController?
     private var hotKey: HotKey?
