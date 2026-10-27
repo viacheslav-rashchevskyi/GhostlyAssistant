@@ -86,6 +86,16 @@ actor WhisperTranscriber: SpeechTranscribing {
         return nil
     }
 
+    /// Bytes taken by all downloaded models.
+    static func diskUsage() -> Int64 {
+        guard let walker = FileManager.default.enumerator(at: modelsBase, includingPropertiesForKeys: [.fileAllocatedSizeKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let url as URL in walker {
+            total += Int64((try? url.resourceValues(forKeys: [.fileAllocatedSizeKey]).fileAllocatedSize) ?? 0)
+        }
+        return total
+    }
+
     static func delete(_ variant: String) throws {
         if let folder = installedFolder(variant) { try FileManager.default.removeItem(at: folder) }
     }

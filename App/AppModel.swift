@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var whisperDownloads: [String: Double] = [:]
     @Published private(set) var whisperLoading: String?
     @Published private(set) var whisperError: String?
+    @Published private(set) var whisperDiskBytes: Int64 = 0
     @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
         didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
     }
@@ -165,6 +166,7 @@ final class AppModel: ObservableObject {
 
     func refreshInstalledWhisper() {
         installedWhisper = Set(WhisperCatalog.models.map(\.variant).filter { WhisperTranscriber.installedFolder($0) != nil })
+        whisperDiskBytes = WhisperTranscriber.diskUsage()
     }
 
     func downloadWhisper(_ variant: String) {
@@ -210,9 +212,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The model in use can't be deleted; the user picks another one first.
     func deleteWhisper(_ variant: String) {
         guard variant != whisperVariant else { return }
-        try? WhisperTranscriber.delete(variant)
+        do {
+            try WhisperTranscriber.delete(variant)
+        } catch {
+            whisperError = "Не удалось удалить модель: \(error.localizedDescription)"
+        }
         refreshInstalledWhisper()
     }
 

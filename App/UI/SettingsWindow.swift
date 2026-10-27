@@ -289,6 +289,11 @@ private struct WhisperModelCard: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+            Text("Скачано моделей: \(model.installedWhisper.count) · занято на диске \(ByteCountFormatter.string(fromByteCount: model.whisperDiskBytes, countStyle: .file))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+                .animation(.smooth, value: model.whisperDiskBytes)
             HStack(spacing: 8) {
                 Image(systemName: "folder").foregroundStyle(.secondary)
                 Text(model.whisperFolder.path(percentEncoded: false))
@@ -339,6 +344,8 @@ private struct WhisperRow: View {
         .disabled(model.whisperLoading != nil && !loading)
     }
 
+    @State private var confirmDelete = false
+
     @ViewBuilder
     private var status: some View {
         HStack(spacing: 8) {
@@ -348,18 +355,22 @@ private struct WhisperRow: View {
             } else if loading {
                 ProgressView().controlSize(.small)
                 Text("загружаю").font(.caption).foregroundStyle(.secondary)
-            } else if selected {
-                Badge(text: "выбрана", color: .purple)
             } else if installed {
-                Badge(text: "скачана", color: .blue)
+                Badge(text: selected ? "выбрана" : "скачана", color: selected ? .purple : .blue)
                 Button {
-                    model.deleteWhisper(info.variant)
+                    confirmDelete = true
                 } label: {
-                    Image(systemName: "trash").font(.caption)
+                    Image(systemName: "trash")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Удалить с диска")
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .disabled(selected)
+                .help(selected ? "Модель используется — сначала выберите другую" : "Удалить с диска")
+                .confirmationDialog("Удалить модель «\(info.title)»?", isPresented: $confirmDelete) {
+                    Button("Удалить (\(info.sizeLabel))", role: .destructive) { model.deleteWhisper(info.variant) }
+                } message: {
+                    Text("Файлы модели будут удалены с диска. Её всегда можно скачать снова.")
+                }
             } else {
                 Button {
                     model.downloadWhisper(info.variant)
