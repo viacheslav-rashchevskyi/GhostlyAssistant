@@ -44,7 +44,7 @@ public enum CardEvent: Equatable, Sendable {
     case answerStarted(id: UUID, question: String)
     case answerDelta(id: UUID, text: String)
     case kbLookup(id: UUID)
-    case answerFinished(id: UUID, latency: Latency)
+    case answerFinished(id: UUID, latency: Latency, usage: TokenUsage)
     case answerFailed(id: UUID, message: String)
 }
 
@@ -180,6 +180,7 @@ public actor AssistantPipeline {
         var fullText = ""
         var firstTextAt: Date?
         var outputTokens = 0
+        var usage = TokenUsage()
         var stopReason: String?
 
         func start() {
@@ -219,9 +220,12 @@ public actor AssistantPipeline {
                         pending[index] = PendingTool(id: toolId, name: name)
                     case .inputJSONDelta(let index, let part):
                         pending[index]?.json += part
+                    case .messageStart(let input, let cacheRead):
+                        usage.add(TokenUsage(inputTokens: input, cacheReadTokens: cacheRead))
                     case .messageDelta(let reason, let tokens):
                         stopReason = reason
                         outputTokens += tokens
+                        usage.outputTokens += tokens
                     default:
                         break
                     }
@@ -263,7 +267,7 @@ public actor AssistantPipeline {
         )
         Self.log.info("answer first text \(latency.timeToFirstToken, format: .fixed(precision: 2))s \(latency.label, privacy: .public)")
         transcript.addAnswer(QAPair(question: ctx.utterance, answer: fullText))
-        continuation.yield(.answerFinished(id: id, latency: latency))
+        continuation.yield(.answerFinished(id: id, latency: latency, usage: usage))
     }
 
     static func message(for error: Error) -> String {
