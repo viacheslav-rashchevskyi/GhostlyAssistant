@@ -161,6 +161,7 @@ public actor AssistantPipeline {
                         roundText += t
                         switch gate.feed(t) {
                         case .suppressed:
+                            Self.log.info("skipped: not a question")
                             continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
                             return
                         case .undecided:
@@ -195,6 +196,7 @@ public actor AssistantPipeline {
                 request = RequestBuilder.continuing(request, assistant: assistant, toolResults: results)
             }
         } catch {
+            Self.log.error("answer failed: \(String(describing: error), privacy: .public)")
             start()
             continuation.yield(.answerFailed(id: id, message: Self.message(for: error)))
             return

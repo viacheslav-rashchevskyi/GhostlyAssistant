@@ -44,3 +44,10 @@ import Testing
     let json = try encodeToDict(Message(role: .assistant, content: [.text("a")]))
     #expect(json["role"] as? String == "assistant")
 }
+
+@Test func inlinePDFEncodesBase64Source() throws {
+    let json = try encodeToDict(ContentBlock.pdf(Data([1, 2, 3]), title: "a.pdf"))
+    #expect(json["type"] as? String == "document")
+    #expect((json["source"] as? [String: String]) == ["type": "base64", "media_type": "application/pdf", "data": "AQID"])
+    #expect(json["title"] as? String == "a.pdf")
+}

@@ -41,6 +41,8 @@ public enum ContentBlock: Codable, Equatable, Sendable {
     case imageJPEG(Data)
     case imagePNG(Data)
     case document(fileId: String, title: String, cache: CacheTTL? = nil)
+    /// A PDF sent inline; used where Files API references aren't accepted (token counting).
+    case pdf(Data, title: String)
     case toolUse(id: String, name: String, input: JSONValue)
     case toolResult(toolUseId: String, content: [ContentBlock], isError: Bool = false)
 
@@ -85,6 +87,10 @@ public enum ContentBlock: Codable, Equatable, Sendable {
             try c.encode(Source(type: "file", fileId: fileId), forKey: .source)
             try c.encode(title, forKey: .title)
             try c.encodeIfPresent(cache.map { CacheControl(ttl: $0) }, forKey: .cacheControl)
+        case .pdf(let data, let title):
+            try c.encode("document", forKey: .type)
+            try c.encode(Source(type: "base64", mediaType: "application/pdf", data: data.base64EncodedString()), forKey: .source)
+            try c.encode(title, forKey: .title)
         case .toolUse(let id, let name, let input):
             try c.encode("tool_use", forKey: .type)
             try c.encode(id, forKey: .id)
@@ -111,6 +117,10 @@ public enum ContentBlock: Codable, Equatable, Sendable {
             self = s.mediaType == "image/png" ? .imagePNG(data) : .imageJPEG(data)
         case "document":
             let s = try c.decode(Source.self, forKey: .source)
+            if s.type == "base64" {
+                self = .pdf(Data(base64Encoded: s.data ?? "") ?? Data(), title: try c.decodeIfPresent(String.self, forKey: .title) ?? "")
+                return
+            }
             self = .document(fileId: s.fileId ?? "", title: try c.decodeIfPresent(String.self, forKey: .title) ?? "",
                              cache: try c.decodeIfPresent(CacheControl.self, forKey: .cacheControl)?.ttl)
         case "tool_use":

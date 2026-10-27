@@ -27,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await DebugCommandLine.runTranscribe(path) }
             return
         }
+        if let text = DebugCommandLine.askText {
+            Task { await DebugCommandLine.runAsk(text) }
+            return
+        }
         settings = SettingsWindowController(model: model)
         let card = ChatView(model: model) { [weak self] in self?.openSettings() }
         let host = NSHostingView(rootView: card)

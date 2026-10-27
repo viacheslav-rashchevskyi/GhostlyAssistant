@@ -8,6 +8,7 @@ final class FakeUploader: KBUploading, @unchecked Sendable {
     let uploadError: Error?
     private(set) var uploads: [String] = []
     private(set) var sent: [MessagesRequest] = []
+    private(set) var counted: [CountTokensRequest] = []
 
     init(tokens: Int, fileId: String = "file_1", uploadError: Error? = nil) {
         self.tokens = tokens
@@ -21,7 +22,10 @@ final class FakeUploader: KBUploading, @unchecked Sendable {
         return fileId
     }
 
-    func countTokens(_ r: CountTokensRequest) async throws -> Int { tokens }
+    func countTokens(_ r: CountTokensRequest) async throws -> Int {
+        counted.append(r)
+        return tokens
+    }
 
     func send(_ r: MessagesRequest) async throws { sent.append(r) }
 }
@@ -90,4 +94,12 @@ private func texts(_ blocks: [ContentBlock]) -> [String] {
     await store.prewarm()
     #expect(api.sent.count == 1)
     #expect(api.sent[0].maxTokens == 0)
+}
+
+@Test func tokenCountSendsPDFInlineNotAsFile() async throws {
+    let api = FakeUploader(tokens: 100)
+    _ = await KnowledgeStore(api: api).configure([try KnowledgeFixtures.makeDir()])
+    let blocks = try #require(api.counted.first).messages[0].content
+    #expect(!blocks.contains { if case .document = $0 { true } else { false } })
+    #expect(blocks.contains { if case .pdf(_, let title) = $0 { title == "report.pdf" } else { false } })
 }

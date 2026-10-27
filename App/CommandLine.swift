@@ -42,3 +42,44 @@ enum DebugCommandLine {
         return Resampler.toMono16k(mono, sampleRate: format.sampleRate, channels: 1)
     }
 }
+
+/// `GhostlyAssistant --ask "<utterance>"`: runs one utterance through the real pipeline (saved key and knowledge base) and prints the events.
+extension DebugCommandLine {
+    static var askText: String? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--ask"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+
+    struct FixedTranscript: SpeechTranscribing {
+        let text: String
+        func transcribe(_ samples: [Float]) async throws -> String { text }
+    }
+
+    static func runAsk(_ text: String) async -> Never {
+        guard let key = KeychainStore().read(AppModel.apiKeyAccount) else {
+            print("error: no API key saved")
+            exit(1)
+        }
+        let client = ClaudeClient(apiKey: key)
+        let store = KnowledgeStore(api: client)
+        let paths = (UserDefaults.standard.stringArray(forKey: "knowledgePaths") ?? []).map { URL(fileURLWithPath: $0) }
+        let kb = await store.configure(paths)
+        print("knowledge: \(kb.mode) \(kb.tokens) tokens, skipped \(kb.skipped)")
+        let pipeline = AssistantPipeline(transcriber: FixedTranscript(text: text), screenshots: ScreenshotService(), claude: client, knowledge: store)
+        let printer = Task {
+            for await event in pipeline.events {
+                switch event {
+                case .answerDelta(_, let t): print(t, terminator: "")
+                case .answerFinished(_, let latency): print("\n[finished \(latency.label)]"); exit(0)
+                case .answerFailed(_, let message): print("\n[failed] \(message)"); exit(1)
+                case .activity(_, .skipped(let reason)): print("[skipped \(reason)]"); exit(0)
+                default: print("[\(event)]")
+                }
+            }
+        }
+        await pipeline.handle(Utterance(samples: [0], endedAt: Date()))
+        _ = await printer.value
+        exit(0)
+    }
+}

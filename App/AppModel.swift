@@ -28,6 +28,15 @@ enum CardStatus: Equatable {
     case error(String)
 }
 
+/// What the settings show about the knowledge base.
+struct KnowledgeState: Equatable {
+    var paths: [URL] = []
+    var mode: KBMode = .none
+    var tokens = 0
+    var skipped: [String] = []
+    var isLoading = false
+}
+
 enum MicState: Equatable {
     case idle
     case recording
@@ -37,7 +46,7 @@ enum MicState: Equatable {
 /// Wires capture, Whisper and the core pipeline together and holds what the chat shows.
 @MainActor
 final class AppModel: ObservableObject {
-    static let apiKeyAccount = "anthropic-api-key"
+    nonisolated static let apiKeyAccount = "anthropic-api-key"
     static let maxTurns = 40
 
     @Published private(set) var turns: [ChatTurn] = []
@@ -47,6 +56,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var micLevel: Float = 0
     @Published private(set) var micError: String?
     @Published var isCardVisible = true
+    @Published private(set) var knowledge = KnowledgeState()
 
     private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
     private let keychain = KeychainStore()
@@ -56,6 +66,9 @@ final class AppModel: ObservableObject {
     private var pipeline: AssistantPipeline?
     private var eventsTask: Task<Void, Never>?
     private var captureRunning = false
+    private var knowledgeStore: KnowledgeStore?
+    private static let knowledgePathsKey = "knowledgePaths"
+
 
     var hasAPIKey: Bool { !(keychain.read(Self.apiKeyAccount) ?? "").isEmpty }
     var latestLatency: Latency? { turns.last { $0.latency != nil }?.latency }
@@ -79,13 +92,17 @@ final class AppModel: ObservableObject {
                     self.status = .downloadingModel(p)
                 }
             }
+            let client = ClaudeClient(apiKey: key)
+            let store = KnowledgeStore(api: client)
+            knowledgeStore = store
             let pipeline = AssistantPipeline(
                 transcriber: whisper,
                 screenshots: ScreenshotService(),
-                claude: ClaudeClient(apiKey: key),
-                knowledge: NoKnowledge()
+                claude: client,
+                knowledge: store
             )
             install(pipeline)
+            Task { await reloadKnowledge() }
             if !captureRunning {
                 capture.onLevel = { [weak self] present in
                     Task { @MainActor in self?.audioPresent = present }
@@ -110,6 +127,44 @@ final class AppModel: ObservableObject {
     func ask(_ text: String) {
         guard let pipeline, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task { await pipeline.ask(text) }
+    }
+
+    // MARK: Knowledge base
+
+    func addKnowledge(_ urls: [URL]) {
+        let merged = savedKnowledgePaths() + urls.filter { !savedKnowledgePaths().contains($0) }
+        saveKnowledgePaths(merged)
+        Task { await reloadKnowledge() }
+    }
+
+    func removeKnowledge(_ url: URL) {
+        saveKnowledgePaths(savedKnowledgePaths().filter { $0 != url })
+        Task { await reloadKnowledge() }
+    }
+
+    func clearKnowledge() {
+        saveKnowledgePaths([])
+        Task { await reloadKnowledge() }
+    }
+
+    /// Re-reads the chosen files, picks inline or search mode, and warms the prompt cache.
+    func reloadKnowledge() async {
+        let paths = savedKnowledgePaths()
+        knowledge.paths = paths
+        guard let store = knowledgeStore else { return }
+        knowledge.isLoading = true
+        let result = await store.configure(paths)
+        knowledge = KnowledgeState(paths: paths, mode: result.mode, tokens: result.tokens, skipped: result.skipped)
+        await store.prewarm()
+    }
+
+    private func savedKnowledgePaths() -> [URL] {
+        (UserDefaults.standard.stringArray(forKey: Self.knowledgePathsKey) ?? []).map { URL(fileURLWithPath: $0) }
+    }
+
+    private func saveKnowledgePaths(_ urls: [URL]) {
+        UserDefaults.standard.set(urls.map(\.path), forKey: Self.knowledgePathsKey)
+        knowledge.paths = urls
     }
 
     func clearChat() {
