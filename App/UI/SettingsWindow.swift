@@ -29,7 +29,9 @@ final class SettingsWindowController {
             w.excludeFromCapture()
             w.isReleasedWhenClosed = false
             w.minSize = NSSize(width: 460, height: 420)
-            w.contentView = NSHostingView(rootView: SettingsView(model: model))
+            w.isOpaque = false
+            // Same system glass and tint as the chat; the titled window clips it to its own rounded corners.
+            w.contentView = GlassStyle.make(NSHostingView(rootView: SettingsView(model: model)), cornerRadius: 0)
             w.center()
             window = w
         }
@@ -63,8 +65,6 @@ struct SettingsView: View {
         .scrollIndicators(.never)
         .id(model.uiLanguage) // rebuild every string when the interface language changes
         .frame(minWidth: 460, minHeight: 420)
-        .background(.ultraThinMaterial)
-        .background(Color.black.opacity(0.35))
         .environment(\.colorScheme, .dark)
     }
 }
@@ -217,7 +217,7 @@ private struct ClaudeModelCard: View {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 6) {
                                 Text(info.displayName.replacingOccurrences(of: "Claude ", with: "")).font(.body.weight(.medium))
-                                if info.model == .haiku { Badge(text: L("рекомендуется"), color: .green) }
+                                if info.model == .haiku { Badge(text: L("рекомендуется"), kind: .recommended) }
                             }
                             Text(ClaudeCatalogFallback.note(for: info.id)).font(.caption).foregroundStyle(.secondary)
                         }
@@ -328,17 +328,50 @@ private struct SelectableRow<Content: View>: View {
     }
 }
 
+/// A small glass capsule with an icon, tinted by its kind.
 private struct Badge: View {
+    enum Kind { case recommended, selected, downloaded }
+
     let text: String
-    let color: Color
+    let kind: Kind
+
+    private var icon: String {
+        switch kind {
+        case .recommended: "sparkle"
+        case .selected: "checkmark"
+        case .downloaded: "arrow.down.circle.fill"
+        }
+    }
+
+    private var colors: [Color] {
+        switch kind {
+        case .recommended: [Color(red: 0.25, green: 0.85, blue: 0.55), Color(red: 0.2, green: 0.75, blue: 0.85)]
+        case .selected: [.purple, Color(red: 0.3, green: 0.6, blue: 1)]
+        case .downloaded: [Color(red: 0.35, green: 0.55, blue: 1), Color(red: 0.35, green: 0.55, blue: 1)]
+        }
+    }
 
     var body: some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .foregroundStyle(color)
-            .background(Capsule().fill(color.opacity(0.15)))
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 8, weight: .bold))
+            Text(text)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(kind == .downloaded ? AnyShapeStyle(colors[0]) : AnyShapeStyle(.white))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .background {
+            if kind == .downloaded {
+                Capsule().fill(colors[0].opacity(0.16))
+                    .overlay(Capsule().strokeBorder(colors[0].opacity(0.45), lineWidth: 0.75))
+            } else {
+                Capsule()
+                    .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
+                    .shadow(color: colors[0].opacity(0.45), radius: 4, y: 1)
+            }
+        }
+        .fixedSize()
     }
 }
 
@@ -406,7 +439,7 @@ private struct WhisperRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(L(info.title)).font(.body.weight(.medium))
-                    if info.variant == WhisperCatalog.recommended { Badge(text: L("рекомендуется"), color: .green) }
+                    if info.variant == WhisperCatalog.recommended { Badge(text: L("рекомендуется"), kind: .recommended) }
                 }
                 Text(info.note).font(.caption).foregroundStyle(.secondary)
             }
@@ -434,7 +467,7 @@ private struct WhisperRow: View {
                 Text(L("удаляю")).font(.caption).foregroundStyle(.secondary)
                     .transition(.opacity)
             } else if installed {
-                Badge(text: selected ? L("выбрана") : L("скачана"), color: selected ? .purple : .blue)
+                Badge(text: selected ? L("выбрана") : L("скачана"), kind: selected ? .selected : .downloaded)
                 Button {
                     confirmDelete = true
                 } label: {

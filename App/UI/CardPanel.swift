@@ -7,10 +7,7 @@ final class CardPanel: NSPanel {
 
     /// Wraps `contentView` in rounded system glass; the rounding clips the backdrop blur too.
     init(contentView: NSView) {
-        let glass = NSGlassEffectView()
-        glass.cornerRadius = Self.cornerRadius
-        glass.tintColor = NSColor.black.withAlphaComponent(0.65)
-        glass.contentView = contentView
+        let glass = GlassStyle.make(contentView, cornerRadius: Self.cornerRadius)
         // Clip everything to the rounded shape, so nothing rectangular (focus rings, key-window
         // backgrounds) can show outside the corners.
         for view in [glass, contentView] {
