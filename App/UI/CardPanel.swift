@@ -1,19 +1,15 @@
 import AppKit
 
 /// Floating, resizable card that stays above other windows and is excluded from screen capture where macOS allows it.
+/// Borderless, so the only visible edge is the rounded glass drawn by the SwiftUI content; edges still resize it.
 final class CardPanel: NSPanel {
     init(contentView: NSView) {
         super.init(
             contentRect: Self.defaultFrame(),
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled, .resizable],
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
-        standardWindowButton(.closeButton)?.isHidden = true
-        standardWindowButton(.miniaturizeButton)?.isHidden = true
-        standardWindowButton(.zoomButton)?.isHidden = true
         isFloatingPanel = true
         level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
