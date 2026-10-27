@@ -11,6 +11,15 @@ final class CardPanel: NSPanel {
         glass.cornerRadius = Self.cornerRadius
         glass.tintColor = NSColor.black.withAlphaComponent(0.65)
         glass.contentView = contentView
+        // Clip everything to the rounded shape, so nothing rectangular (focus rings, key-window
+        // backgrounds) can show outside the corners.
+        for view in [glass, contentView] {
+            view.wantsLayer = true
+            view.layer?.cornerRadius = Self.cornerRadius
+            view.layer?.cornerCurve = .continuous
+            view.layer?.masksToBounds = true
+            view.focusRingType = .none
+        }
         super.init(
             contentRect: Self.defaultFrame(),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],

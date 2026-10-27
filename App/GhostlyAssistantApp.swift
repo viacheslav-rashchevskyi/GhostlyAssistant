@@ -56,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await model.start() }
         // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
         if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
+        if ProcessInfo.processInfo.environment["GHOSTLY_FOCUS_CHAT"] == "1" {
+            NSApp.activate()
+            panel.makeKey()
+        }
     }
 
     func toggleCard() {

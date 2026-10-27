@@ -23,6 +23,7 @@ struct ChatView: View {
         .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220, maxHeight: .infinity)
         // The glass itself is the panel's AppKit NSGlassEffectView: SwiftUI glass at the root blurred the whole
         // window rectangle, which showed as square corners around the rounded card.
+        .focusEffectDisabled()
         .environment(\.colorScheme, .dark)
     }
 }
