@@ -354,7 +354,7 @@ private struct Badge: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: icon).font(.system(size: 8, weight: .bold))
-            Text(text)
+            Text(text.prefix(1).uppercased() + text.dropFirst())
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(kind == .downloaded ? AnyShapeStyle(colors[0]) : AnyShapeStyle(.white))
