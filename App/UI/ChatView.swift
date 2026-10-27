@@ -44,6 +44,8 @@ private struct ChatHeader: View {
             Spacer()
             if model.sessionCost.usd > 0 {
                 Text(model.sessionCost.label)
+                    .lineLimit(1)
+                    .fixedSize()
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
@@ -52,6 +54,8 @@ private struct ChatHeader: View {
             if let latency = model.latestLatency {
                 Label(latency.localizedLabel, systemImage: "bolt.fill")
                     .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .layoutPriority(-1)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
@@ -84,6 +88,8 @@ private struct ListeningPill: View {
             Text(active ? L("Слушаю") : L("Тишина"))
                 .contentTransition(.opacity)
         }
+        .lineLimit(1)
+        .fixedSize()
         .font(.caption2.weight(.medium))
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
