@@ -100,7 +100,7 @@ enum Loc {
         "Распознавание речи": "Speech recognition",
         "Whisper работает на Mac, без интернета": "Whisper runs on your Mac, offline",
         "Собеседники в звонке": "People on the call",
-        "Что слушает Whisper из звука Zoom": "What Whisper hears from Zoom audio",
+        "Что слушает Whisper из звука звонка": "What Whisper hears from the call audio",
         "Ваш голос": "Your voice",
         "Вопросы, которые вы задаёте кнопкой микрофона": "Questions you ask with the mic button",
         "Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса.":
@@ -153,10 +153,11 @@ enum Loc {
         "Поиск по базе · %@ токенов": "Search mode · %@ tokens",
         "Нечего читать": "Nothing to read",
         "Демонстрация экрана": "Screen sharing",
-        "Как спрятать чат от трансляции в Zoom": "How to keep the chat out of a Zoom share",
+        "Как держать чат вне трансляции в любой программе созвонов": "How to keep the chat out of a share in any meeting app",
+        "В программе созвонов демонстрируйте отдельное окно, а не весь экран": "In your meeting app, share a single window instead of the whole screen",
+        "Или транслируйте другой дисплей, а чат держите на экране ноутбука": "Or share another display and keep the chat on the laptop screen",
+        "Работает в Zoom, Google Meet, Teams, Discord и других: в трансляцию попадает только выбранное окно или дисплей.": "Works in Zoom, Google Meet, Teams, Discord and others: only the chosen window or display is shared.",
         "Проверьте на устройстве другого участника, что чата не видно": "Check on another participant's device that the chat isn't visible",
-        "Если чат всё равно виден — демонстрируйте отдельное окно, а не весь экран, или другой дисплей (чат держите на экране ноутбука).":
-            "If the chat still shows — share a single window instead of the whole screen, or another display (keep the chat on the laptop screen).",
         "Скрыть или показать чат:": "Hide or show the chat:"
     ]
 }

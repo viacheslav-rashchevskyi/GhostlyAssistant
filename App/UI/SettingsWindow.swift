@@ -507,7 +507,7 @@ private struct SpeechCard: View {
         SettingsCard(icon: "waveform", title: L("Распознавание речи"),
                      subtitle: L("Whisper работает на Mac, без интернета")) {
             LanguageRow(icon: "person.wave.2.fill", title: L("Собеседники в звонке"),
-                        hint: L("Что слушает Whisper из звука Zoom"), selection: $model.callLanguage)
+                        hint: L("Что слушает Whisper из звука звонка"), selection: $model.callLanguage)
             Divider().opacity(0.3)
             LanguageRow(icon: "mic.fill", title: L("Ваш голос"),
                         hint: L("Вопросы, которые вы задаёте кнопкой микрофона"), selection: $model.micLanguage)
@@ -722,26 +722,26 @@ private struct ModeBadge: View {
 
 private struct ScreenShareCard: View {
     private let steps = [
-        "Zoom → Settings → Share Screen → Advanced",
-        "Screen capture mode → «Advanced capture with window filtering»",
+        L("В программе созвонов демонстрируйте отдельное окно, а не весь экран"),
+        L("Или транслируйте другой дисплей, а чат держите на экране ноутбука"),
         L("Проверьте на устройстве другого участника, что чата не видно")
     ]
 
     var body: some View {
         SettingsCard(icon: "eye.slash.fill", title: L("Демонстрация экрана"),
-                     subtitle: L("Как спрятать чат от трансляции в Zoom")) {
+                     subtitle: L("Как держать чат вне трансляции в любой программе созвонов")) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
                         Text("\(i + 1)")
                             .font(.caption.weight(.bold))
                             .frame(width: 20, height: 20)
-                            .background(Circle().fill(Color.teal.opacity(0.3)))
+                            .background(Circle().fill(Theme.accentSoft))
                         Text(step).font(.callout)
                     }
                 }
             }
-            Text(L("Если чат всё равно виден — демонстрируйте отдельное окно, а не весь экран, или другой дисплей (чат держите на экране ноутбука)."))
+            Text(L("Работает в Zoom, Google Meet, Teams, Discord и других: в трансляцию попадает только выбранное окно или дисплей."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
