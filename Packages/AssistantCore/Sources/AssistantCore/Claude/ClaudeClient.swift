@@ -53,7 +53,7 @@ public struct ClaudeClient: MessageStreaming {
     }
 
     public func streamMessage(_ r: MessagesRequest) -> AsyncThrowingStream<SSEEvent, Error> {
-        let request = jsonRequest("messages", body: r)
+        let request = messagesRequest(r)
         let transport = transport
         return AsyncThrowingStream { c in
             let task = Task {
@@ -82,7 +82,7 @@ public struct ClaudeClient: MessageStreaming {
 
     /// Non-streaming call whose response body is ignored (used for cache prewarming).
     public func send(_ r: MessagesRequest) async throws {
-        _ = try await perform(jsonRequest("messages", body: r))
+        _ = try await perform(messagesRequest(r))
     }
 
     public func uploadFile(_ data: Data, filename: String, mimeType: String) async throws -> String {
@@ -117,6 +117,12 @@ public struct ClaudeClient: MessageStreaming {
         } catch {
             throw Self.map(error)
         }
+    }
+
+    private func messagesRequest(_ r: MessagesRequest) -> URLRequest {
+        var request = jsonRequest("messages", body: r)
+        if r.fallbacks != nil { request.setValue(ClaudeModel.fallbackBeta, forHTTPHeaderField: "anthropic-beta") }
+        return request
     }
 
     private func baseRequest(_ path: String) -> URLRequest {

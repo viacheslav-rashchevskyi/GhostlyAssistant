@@ -50,7 +50,7 @@ public struct ToolDefinition: Encodable, Equatable, Sendable {
 }
 
 public struct MessagesRequest: Encodable, Equatable, Sendable {
-    public struct Thinking: Encodable, Equatable, Sendable { public var type = "disabled" }
+    public struct Thinking: Encodable, Equatable, Sendable { public var type: String }
     public struct OutputConfig: Encodable, Equatable, Sendable { public var effort = "low" }
 
     public var model: String
@@ -59,11 +59,12 @@ public struct MessagesRequest: Encodable, Equatable, Sendable {
     public var system: [ContentBlock]
     public var messages: [Message]
     public var tools: [ToolDefinition]?
-    public var thinking = Thinking()
+    public var thinking: Thinking?
     public var outputConfig = OutputConfig()
+    public var fallbacks: String?
 
     enum CodingKeys: String, CodingKey {
-        case model, stream, system, messages, tools, thinking
+        case model, stream, system, messages, tools, thinking, fallbacks
         case maxTokens = "max_tokens"
         case outputConfig = "output_config"
     }
@@ -77,10 +78,9 @@ public struct CountTokensRequest: Encodable, Equatable, Sendable {
 }
 
 public enum RequestBuilder {
-    public static let model = "claude-haiku-5-5"
     static let maxTokens = 2048
 
-    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition]) -> MessagesRequest {
+    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku) -> MessagesRequest {
         var content = kbBlocks(kb)
         if !ctx.recentTranscript.isEmpty {
             content.append(.text("<recent_transcript>\n\(ctx.recentTranscript.joined(separator: "\n"))\n</recent_transcript>"))
@@ -95,12 +95,14 @@ public enum RequestBuilder {
         let tag = ctx.typedByUser ? "typed_question" : "current_utterance"
         content.append(.text("<\(tag)>\n\(ctx.utterance)\n</\(tag)>"))
         return MessagesRequest(
-            model: model,
+            model: model.rawValue,
             maxTokens: maxTokens,
             stream: true,
             system: system(kb),
             messages: [Message(role: .user, content: content)],
-            tools: tools.isEmpty ? nil : tools
+            tools: tools.isEmpty ? nil : tools,
+            thinking: model.thinking,
+            fallbacks: model.fallbacks
         )
     }
 
@@ -111,21 +113,23 @@ public enum RequestBuilder {
         return next
     }
 
-    public static func prewarm(kb: KBPayload, tools: [ToolDefinition]) -> MessagesRequest {
+    public static func prewarm(kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku) -> MessagesRequest {
         var content = kbBlocks(kb)
         content.append(.text("<current_utterance>\n\n</current_utterance>"))
         return MessagesRequest(
-            model: model,
+            model: model.rawValue,
             maxTokens: 0,
             stream: false,
             system: system(kb),
             messages: [Message(role: .user, content: content)],
-            tools: tools.isEmpty ? nil : tools
+            tools: tools.isEmpty ? nil : tools,
+            thinking: model.thinking,
+            fallbacks: model.fallbacks
         )
     }
 
-    public static func countTokens(kb: [ContentBlock]) -> CountTokensRequest {
-        CountTokensRequest(model: model, system: [], messages: [Message(role: .user, content: kb)], tools: nil)
+    public static func countTokens(kb: [ContentBlock], model: ClaudeModel = .haiku) -> CountTokensRequest {
+        CountTokensRequest(model: model.rawValue, system: [], messages: [Message(role: .user, content: kb)], tools: nil)
     }
 
     private static func system(_ kb: KBPayload) -> [ContentBlock] {

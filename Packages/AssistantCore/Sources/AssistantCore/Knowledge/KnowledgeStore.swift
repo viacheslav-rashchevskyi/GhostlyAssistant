@@ -22,12 +22,18 @@ public actor KnowledgeStore: KnowledgeProviding {
     private var blocks: [ContentBlock] = []
     private var documents: [KBDocument] = []
     private var index = BM25Index(documents: [])
+    private var model = ClaudeModel.haiku
     /// file_id per PDF, keyed by path and modification date, so re-reading doesn't re-upload.
     private var uploaded: [String: String] = [:]
 
     public init(api: KBUploading, threshold: Int = 80_000) {
         self.api = api
         self.threshold = threshold
+    }
+
+    /// Prompt caches are per model, so the prewarm must use the model that will answer.
+    public func setModel(_ model: ClaudeModel) {
+        self.model = model
     }
 
     public func configure(_ urls: [URL]) async -> (mode: KBMode, tokens: Int, skipped: [String]) {
@@ -42,7 +48,7 @@ public actor KnowledgeStore: KnowledgeProviding {
         blocks = await inlineBlocks(documents)
         let tokens: Int
         do {
-            tokens = try await api.countTokens(RequestBuilder.countTokens(kb: countableBlocks()))
+            tokens = try await api.countTokens(RequestBuilder.countTokens(kb: countableBlocks(), model: model))
         } catch {
             Self.log.error("count_tokens failed: \(String(describing: error), privacy: .public)")
             tokens = Int.max
@@ -54,7 +60,7 @@ public actor KnowledgeStore: KnowledgeProviding {
 
     public func prewarm() async {
         guard mode != .none else { return }
-        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools()))
+        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools(), model: model))
     }
 
     public func payload() -> KBPayload {

@@ -11,13 +11,13 @@ enum SpeechLanguage: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .auto: "Автоопределение"
-        case .uk: "🇺🇦 Українська"
+        case .uk: "Українська"
         case .ru: "Русский"
-        case .en: "🇬🇧 English"
-        case .pl: "🇵🇱 Polski"
-        case .de: "🇩🇪 Deutsch"
-        case .fr: "🇫🇷 Français"
-        case .es: "🇪🇸 Español"
+        case .en: "English"
+        case .pl: "Polski"
+        case .de: "Deutsch"
+        case .fr: "Français"
+        case .es: "Español"
         }
     }
 }

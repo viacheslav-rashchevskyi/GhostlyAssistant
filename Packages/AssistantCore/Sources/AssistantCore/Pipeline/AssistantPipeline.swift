@@ -61,6 +61,7 @@ public actor AssistantPipeline {
     private let knowledge: KnowledgeProviding
     private let now: @Sendable () -> Date
     private var transcript = TranscriptBuffer()
+    private var model = ClaudeModel.haiku
 
     public init(
         transcriber: SpeechTranscribing,
@@ -75,6 +76,10 @@ public actor AssistantPipeline {
         self.claude = claude
         self.knowledge = knowledge
         self.now = now
+    }
+
+    public func setModel(_ model: ClaudeModel) {
+        self.model = model
     }
 
     public func handle(_ u: Utterance) async {
@@ -132,7 +137,7 @@ public actor AssistantPipeline {
     private func answer(_ ctx: AnswerContext, id: UUID, startedAt: Date) async {
         let kb = await knowledge.payload()
         let tools = await knowledge.tools()
-        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools)
+        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools, model: model)
         var gate = AnswerGate()
         var started = false
         var fullText = ""
