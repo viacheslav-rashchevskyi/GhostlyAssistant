@@ -46,7 +46,7 @@ final class AppModel: ObservableObject {
             status = .needsKey
             return
         }
-        guard ScreenPermission.granted else {
+        guard await ScreenPermission.check() else {
             ScreenPermission.request()
             status = .needsPermission
             return
