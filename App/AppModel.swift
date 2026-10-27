@@ -63,9 +63,9 @@ final class AppModel: ObservableObject {
             Task { await whisper.setCallLanguage(callLanguage.code) }
         }
     }
-    @Published var claudeModel: ClaudeModel = UserDefaults.standard.string(forKey: "claudeModel").flatMap(ClaudeModel.init(rawValue:)) ?? .haiku {
+    @Published var claudeModel: ClaudeModel = UserDefaults.standard.string(forKey: "claudeModel").map(ClaudeModel.init(id:)) ?? .haiku {
         didSet {
-            UserDefaults.standard.set(claudeModel.rawValue, forKey: "claudeModel")
+            UserDefaults.standard.set(claudeModel.id, forKey: "claudeModel")
             let model = claudeModel
             Task {
                 await pipeline?.setModel(model)
@@ -74,6 +74,12 @@ final class AppModel: ObservableObject {
             }
         }
     }
+    /// Models offered in settings: the API's list for this key, or the known ones when it can't be fetched.
+    @Published private(set) var claudeModels: [ClaudeModelInfo] = ClaudeCatalogFallback.models
+    @Published private(set) var claudeModelsLoading = false
+    @Published private(set) var claudeModelsFromAPI = false
+    /// Display name → price from Anthropic's pricing page; empty until fetched.
+    @Published private(set) var claudePrices: [String: ClaudePrice] = [:]
     @Published private(set) var whisperVariant = UserDefaults.standard.string(forKey: "whisperModel") ?? WhisperCatalog.recommended
     @Published private(set) var installedWhisper: Set<String> = []
     @Published private(set) var whisperDownloads: [String: Double] = [:]
@@ -134,6 +140,7 @@ final class AppModel: ObservableObject {
             )
             await pipeline.setModel(claudeModel)
             install(pipeline)
+            Task { await refreshClaudeModels() }
             Task { await reloadKnowledge() }
             if !captureRunning {
                 capture.onLevel = { [weak self] present in
@@ -159,6 +166,26 @@ final class AppModel: ObservableObject {
     func ask(_ text: String) {
         guard let pipeline, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task { await pipeline.ask(text) }
+    }
+
+    // MARK: Claude models
+
+    /// Models from the API for this key and prices from the pricing page, fetched together.
+    func refreshClaudeModels() async {
+        claudeModelsLoading = true
+        async let prices = try? PricingPage.fetch()
+        if let key = keychain.read(Self.apiKeyAccount), !key.isEmpty,
+           let models = try? await ClaudeClient(apiKey: key).listModels(), !models.isEmpty {
+            claudeModels = models.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+            claudeModelsFromAPI = true
+        }
+        if let fetched = await prices, !fetched.isEmpty { claudePrices = fetched }
+        claudeModelsLoading = false
+    }
+
+    /// Live price when the pricing page lists the model, otherwise the built-in table.
+    func price(for info: ClaudeModelInfo) -> ClaudePrice? {
+        claudePrices[info.displayName] ?? info.model.price
     }
 
     // MARK: Whisper models

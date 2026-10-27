@@ -51,7 +51,7 @@ public struct ToolDefinition: Encodable, Equatable, Sendable {
 
 public struct MessagesRequest: Encodable, Equatable, Sendable {
     public struct Thinking: Encodable, Equatable, Sendable { public var type: String }
-    public struct OutputConfig: Encodable, Equatable, Sendable { public var effort = "low" }
+    public struct OutputConfig: Encodable, Equatable, Sendable { public var effort: String }
 
     public var model: String
     public var maxTokens: Int
@@ -60,7 +60,7 @@ public struct MessagesRequest: Encodable, Equatable, Sendable {
     public var messages: [Message]
     public var tools: [ToolDefinition]?
     public var thinking: Thinking?
-    public var outputConfig = OutputConfig()
+    public var outputConfig: OutputConfig?
     public var fallbacks: String?
 
     enum CodingKeys: String, CodingKey {
@@ -95,13 +95,14 @@ public enum RequestBuilder {
         let tag = ctx.typedByUser ? "typed_question" : "current_utterance"
         content.append(.text("<\(tag)>\n\(ctx.utterance)\n</\(tag)>"))
         return MessagesRequest(
-            model: model.rawValue,
+            model: model.id,
             maxTokens: maxTokens,
             stream: true,
             system: system(kb),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
             thinking: model.thinking,
+            outputConfig: model.effort.map { MessagesRequest.OutputConfig(effort: $0) },
             fallbacks: model.fallbacks
         )
     }
@@ -117,19 +118,20 @@ public enum RequestBuilder {
         var content = kbBlocks(kb)
         content.append(.text("<current_utterance>\n\n</current_utterance>"))
         return MessagesRequest(
-            model: model.rawValue,
+            model: model.id,
             maxTokens: 0,
             stream: false,
             system: system(kb),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
             thinking: model.thinking,
+            outputConfig: model.effort.map { MessagesRequest.OutputConfig(effort: $0) },
             fallbacks: model.fallbacks
         )
     }
 
     public static func countTokens(kb: [ContentBlock], model: ClaudeModel = .haiku) -> CountTokensRequest {
-        CountTokensRequest(model: model.rawValue, system: [], messages: [Message(role: .user, content: kb)], tools: nil)
+        CountTokensRequest(model: model.id, system: [], messages: [Message(role: .user, content: kb)], tools: nil)
     }
 
     private static func system(_ kb: KBPayload) -> [ContentBlock] {

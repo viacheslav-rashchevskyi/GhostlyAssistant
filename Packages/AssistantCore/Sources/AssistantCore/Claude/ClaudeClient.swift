@@ -119,6 +119,18 @@ public struct ClaudeClient: MessageStreaming {
         }
     }
 
+    /// Models available to this API key.
+    public func listModels() async throws -> [ClaudeModelInfo] {
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models?limit=1000")!)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
+        struct Page: Decodable { let data: [ClaudeModelInfo] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(Page.self, from: try await perform(request)).data
+    }
+
     private func messagesRequest(_ r: MessagesRequest) -> URLRequest {
         var request = jsonRequest("messages", body: r)
         if r.fallbacks != nil { request.setValue(ClaudeModel.fallbackBeta, forHTTPHeaderField: "anthropic-beta") }

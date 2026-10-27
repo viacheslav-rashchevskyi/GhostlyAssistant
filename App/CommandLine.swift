@@ -66,8 +66,8 @@ extension DebugCommandLine {
         let paths = (UserDefaults.standard.stringArray(forKey: "knowledgePaths") ?? []).map { URL(fileURLWithPath: $0) }
         let kb = await store.configure(paths)
         print("knowledge: \(kb.mode) \(kb.tokens) tokens, skipped \(kb.skipped)")
-        let model = UserDefaults.standard.string(forKey: "claudeModel").flatMap(ClaudeModel.init(rawValue:)) ?? .haiku
-        print("model: \(model.rawValue)")
+        let model = UserDefaults.standard.string(forKey: "claudeModel").map(ClaudeModel.init(id:)) ?? .haiku
+        print("model: \(model.id)")
         await store.setModel(model)
         let pipeline = AssistantPipeline(transcriber: FixedTranscript(text: text), screenshots: ScreenshotService(), claude: client, knowledge: store)
         await pipeline.setModel(model)

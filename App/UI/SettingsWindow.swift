@@ -187,40 +187,54 @@ private struct APIKeyCard: View {
 private struct ClaudeModelCard: View {
     @ObservedObject var model: AppModel
 
-    private struct Option {
-        let model: ClaudeModel
-        let title: String
-        let note: String
-        let price: String
-    }
-
-    private let options = [
-        Option(model: .haiku, title: "Haiku 5.5", note: "Самая быстрая — для живого звонка", price: "$0,10 / $0,50"),
-        Option(model: .sonnet, title: "Sonnet 5.5", note: "Умнее, отвечает медленнее", price: "$2 / $10"),
-        Option(model: .opus, title: "Opus 5.5", note: "Самая умная и самая медленная", price: "$4 / $20")
-    ]
-
     var body: some View {
         SettingsCard(icon: "sparkles", tint: .orange, title: "Модель Claude",
                      subtitle: "Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход") {
             VStack(spacing: 6) {
-                ForEach(options, id: \.model) { option in
-                    SelectableRow(selected: model.claudeModel == option.model) {
-                        withAnimation(.smooth) { model.claudeModel = option.model }
+                ForEach(model.claudeModels) { info in
+                    SelectableRow(selected: model.claudeModel == info.model) {
+                        withAnimation(.smooth) { model.claudeModel = info.model }
                     } content: {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 6) {
-                                Text(option.title).font(.body.weight(.medium))
-                                if option.model == .haiku { Badge(text: "рекомендуется", color: .green) }
+                                Text(info.displayName.replacingOccurrences(of: "Claude ", with: "")).font(.body.weight(.medium))
+                                if info.model == .haiku { Badge(text: "рекомендуется", color: .green) }
                             }
-                            Text(option.note).font(.caption).foregroundStyle(.secondary)
+                            Text(ClaudeCatalogFallback.note(for: info.id)).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(option.price).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(model.price(for: info)?.label ?? "цена неизвестна")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
+            .animation(.smooth, value: model.claudeModels)
+            HStack(spacing: 8) {
+                if model.claudeModelsLoading {
+                    ProgressView().controlSize(.small)
+                    Text("Обновляю список и цены…")
+                } else {
+                    Image(systemName: model.claudeModelsFromAPI ? "checkmark.circle.fill" : "exclamationmark.circle")
+                        .foregroundStyle(model.claudeModelsFromAPI ? Color.green : Color.orange)
+                    Text(model.claudeModelsFromAPI
+                         ? (model.claudePrices.isEmpty ? "Список из API, цены из встроенной таблицы" : "Список из API, цены с anthropic.com")
+                         : "Нет связи с API — показаны известные модели")
+                }
+                Spacer()
+                Button {
+                    Task { await model.refreshClaudeModels() }
+                } label: {
+                    Label("Обновить", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .disabled(model.claudeModelsLoading)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
+        .task { await model.refreshClaudeModels() }
     }
 }
 
