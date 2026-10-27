@@ -49,7 +49,7 @@ private struct ChatHeader: View {
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
-                    .help(L("Потрачено за сессию: %d вход · %d кэш · %d выход токенов", model.sessionUsage.inputTokens, model.sessionUsage.cacheReadTokens, model.sessionUsage.outputTokens))
+                    .help(L("Потрачено за сессию: %d вход · %d из кэша · %d в кэш · %d выход токенов", model.sessionUsage.inputTokens, model.sessionUsage.cacheReadTokens, model.sessionUsage.cacheCreationTokens, model.sessionUsage.outputTokens))
             }
             if let latency = model.latestLatency {
                 Label(latency.localizedLabel, systemImage: "bolt.fill")

@@ -75,15 +75,17 @@ extension DebugCommandLine {
             for await event in pipeline.events {
                 switch event {
                 case .answerDelta(_, let t): print(t, terminator: "")
-                case .answerFinished(_, let latency, let usage): print("\n[finished \(latency.label), \(usage.outputTokens) out tokens]"); exit(0)
+                case .usage(_, let u): print("[usage in \(u.inputTokens) cached \(u.cacheReadTokens) written \(u.cacheCreationTokens) out \(u.outputTokens)]")
+                case .answerFinished(_, let latency): print("\n[finished \(latency.label)]")
                 case .answerFailed(_, let message): print("\n[failed] \(message)"); exit(1)
-                case .activity(_, .skipped(let reason)): print("[skipped \(reason)]"); exit(0)
+                case .activity(_, .skipped(let reason)): print("[skipped \(reason)]")
                 default: print("[\(event)]")
                 }
             }
         }
         await pipeline.handle(Utterance(samples: [0], endedAt: Date()))
-        _ = await printer.value
+        try? await Task.sleep(for: .milliseconds(300)) // let the printer drain the last events
+        printer.cancel()
         exit(0)
     }
 }

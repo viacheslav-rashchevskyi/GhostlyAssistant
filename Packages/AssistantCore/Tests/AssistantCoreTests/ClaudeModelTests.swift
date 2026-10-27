@@ -107,10 +107,10 @@ private func json(_ id: String) throws -> [String: Any] {
 }
 
 @Test func knownPrices() {
-    #expect(ClaudeModel(id: "claude-haiku-5-5").price == ClaudePrice(input: 0.10, output: 0.50))
-    #expect(ClaudeModel(id: "claude-opus-5-5").price == ClaudePrice(input: 4, output: 20))
-    #expect(ClaudeModel(id: "claude-fable-5-1").price == ClaudePrice(input: 10, output: 50))
-    #expect(ClaudeModel(id: "claude-sonnet-4-6").price == ClaudePrice(input: 3, output: 15))
+    #expect(ClaudeModel(id: "claude-haiku-5-5").price == ClaudePrice(input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.20))
+    #expect(ClaudeModel(id: "claude-opus-5-5").price == ClaudePrice(input: 4, output: 20, cacheRead: 0.20, cacheWrite: 8))
+    #expect(ClaudeModel(id: "claude-fable-5-1").price == ClaudePrice(input: 10, output: 50, cacheRead: 0.25, cacheWrite: 20))
+    #expect(ClaudeModel(id: "claude-sonnet-4-6").price == ClaudePrice(input: 3, output: 15, cacheRead: 0.30, cacheWrite: 6))
     #expect(ClaudeModel(id: "claude-3-7-sonnet-20250219").price == nil)
 }
 

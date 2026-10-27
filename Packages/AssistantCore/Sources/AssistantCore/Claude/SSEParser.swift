@@ -1,7 +1,7 @@
 import Foundation
 
 public enum SSEEvent: Equatable, Sendable {
-    case messageStart(inputTokens: Int, cacheReadTokens: Int)
+    case messageStart(inputTokens: Int, cacheReadTokens: Int, cacheCreationTokens: Int = 0)
     case textDelta(index: Int, text: String)
     case toolUseStart(index: Int, id: String, name: String)
     case inputJSONDelta(index: Int, partialJSON: String)
@@ -25,7 +25,8 @@ public enum SSEParser {
         switch e.type {
         case "message_start":
             let u = e.message?.usage
-            return .messageStart(inputTokens: u?.inputTokens ?? 0, cacheReadTokens: u?.cacheReadInputTokens ?? 0)
+            return .messageStart(inputTokens: u?.inputTokens ?? 0, cacheReadTokens: u?.cacheReadInputTokens ?? 0,
+                                 cacheCreationTokens: u?.cacheCreationInputTokens ?? 0)
         case "content_block_start":
             guard let b = e.contentBlock else { return nil }
             switch b.type {
@@ -62,10 +63,12 @@ public enum SSEParser {
             var inputTokens: Int?
             var outputTokens: Int?
             var cacheReadInputTokens: Int?
+            var cacheCreationInputTokens: Int?
             enum CodingKeys: String, CodingKey {
                 case inputTokens = "input_tokens"
                 case outputTokens = "output_tokens"
                 case cacheReadInputTokens = "cache_read_input_tokens"
+                case cacheCreationInputTokens = "cache_creation_input_tokens"
             }
         }
         struct MessageInfo: Decodable { var usage: Usage? }

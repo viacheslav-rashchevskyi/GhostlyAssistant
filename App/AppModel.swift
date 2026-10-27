@@ -450,11 +450,12 @@ final class AppModel: ObservableObject {
             update(id) { $0.answer += text }
         case .kbLookup(let id):
             update(id) { $0.step = .searching }
-        case .answerFinished(let id, let latency, let usage):
+        case .answerFinished(let id, let latency):
             update(id) {
                 $0.step = .done
                 $0.latency = latency
             }
+        case .usage(_, let usage):
             sessionUsage.add(usage)
             sessionCost = SessionCost(usd: sessionUsage.cost(price: activePrice))
         case .answerFailed(let id, let message):

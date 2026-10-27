@@ -1,29 +1,36 @@
 import Foundation
 
-/// Token counts for one or more requests. `cacheReadTokens` is the part of `inputTokens` that was a cache hit.
+/// Token counts for one or more requests, as the API reports them: `inputTokens` is only the uncached
+/// remainder; cache reads and cache writes are separate, so the whole prompt is the sum of the three.
 public struct TokenUsage: Equatable, Sendable {
     public var inputTokens: Int
     public var cacheReadTokens: Int
+    public var cacheCreationTokens: Int
     public var outputTokens: Int
 
-    public init(inputTokens: Int = 0, cacheReadTokens: Int = 0, outputTokens: Int = 0) {
+    public init(inputTokens: Int = 0, cacheReadTokens: Int = 0, cacheCreationTokens: Int = 0, outputTokens: Int = 0) {
         self.inputTokens = inputTokens
         self.cacheReadTokens = cacheReadTokens
+        self.cacheCreationTokens = cacheCreationTokens
         self.outputTokens = outputTokens
     }
+
+    public var promptTokens: Int { inputTokens + cacheReadTokens + cacheCreationTokens }
 
     public mutating func add(_ other: TokenUsage) {
         inputTokens += other.inputTokens
         cacheReadTokens += other.cacheReadTokens
+        cacheCreationTokens += other.cacheCreationTokens
         outputTokens += other.outputTokens
     }
 
-    /// Dollar cost at the given per-MTok price; cache reads are billed at 0.1x the input rate.
+    /// Dollar cost. Cache reads and 1-hour cache writes use the model's own prices when known,
+    /// otherwise the standard 0.1x and 2x of the base input price.
     public func cost(price: ClaudePrice) -> Double {
-        let freshInput = max(0, inputTokens - cacheReadTokens)
         let million = 1_000_000.0
-        return Double(freshInput) / million * price.input
-            + Double(cacheReadTokens) / million * price.input * 0.1
+        return Double(inputTokens) / million * price.input
+            + Double(cacheReadTokens) / million * (price.cacheRead ?? price.input * 0.1)
+            + Double(cacheCreationTokens) / million * (price.cacheWrite ?? price.input * 2)
             + Double(outputTokens) / million * price.output
     }
 }

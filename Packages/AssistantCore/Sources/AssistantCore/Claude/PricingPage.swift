@@ -12,7 +12,7 @@ public enum PricingPage {
         return parse(String(decoding: data, as: UTF8.self))
     }
 
-    /// Reads the first table whose header has "Base input": model display name → base input / output price.
+    /// Reads the first table whose header has "Base input": model display name → base, output and cache prices.
     /// Rows that repeat a model (tiered prices) keep the first, lowest tier.
     public static func parse(_ markdown: String) -> [String: ClaudePrice] {
         var prices: [String: ClaudePrice] = [:]
@@ -30,7 +30,10 @@ public enum PricingPage {
             guard cells.count >= 3, !cells[0].hasPrefix("-"),
                   let input = dollars(cells[1]), let output = dollars(cells[cells.count - 1]) else { continue }
             let name = modelName(cells[0])
-            if prices[name] == nil { prices[name] = ClaudePrice(input: input, output: output) }
+            // Columns: base input | 5m writes | 1h writes | cache hits | output.
+            let write1h = cells.count >= 6 ? dollars(cells[3]) : nil
+            let hits = cells.count >= 6 ? dollars(cells[4]) : nil
+            if prices[name] == nil { prices[name] = ClaudePrice(input: input, output: output, cacheRead: hits, cacheWrite: write1h) }
         }
         return prices
     }

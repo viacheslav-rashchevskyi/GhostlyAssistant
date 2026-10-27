@@ -22,13 +22,13 @@ private let page = """
 
 @Test func parsesStandardPricesByDisplayName() {
     let prices = PricingPage.parse(page)
-    #expect(prices["Claude Opus 5.5"] == ClaudePrice(input: 4, output: 20))
-    #expect(prices["Claude Sonnet 5"] == ClaudePrice(input: 2, output: 10))
-    #expect(prices["Claude Mythos 5.1"] == ClaudePrice(input: 10, output: 50))
+    #expect(prices["Claude Opus 5.5"] == ClaudePrice(input: 4, output: 20, cacheRead: 0.20, cacheWrite: 8))
+    #expect(prices["Claude Sonnet 5"] == ClaudePrice(input: 2, output: 10, cacheRead: 0.20, cacheWrite: 4))
+    #expect(prices["Claude Mythos 5.1"] == ClaudePrice(input: 10, output: 50, cacheRead: 0.25, cacheWrite: 20))
 }
 
 @Test func firstRowWinsForTieredModels() {
-    #expect(PricingPage.parse(page)["Claude Haiku 5.5"] == ClaudePrice(input: 0.10, output: 0.50))
+    #expect(PricingPage.parse(page)["Claude Haiku 5.5"] == ClaudePrice(input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.20))
 }
 
 @Test func batchTableDoesNotOverrideStandardPrices() {
@@ -42,6 +42,6 @@ private let page = """
 @Test func fetchReadsThePublicPage() async throws {
     let t = MockTransport(status: 200, body: page)
     let prices = try await PricingPage.fetch(transport: t)
-    #expect(prices["Claude Opus 5.5"] == ClaudePrice(input: 4, output: 20))
+    #expect(prices["Claude Opus 5.5"] == ClaudePrice(input: 4, output: 20, cacheRead: 0.20, cacheWrite: 8))
     #expect(t.last?.url?.absoluteString == "https://platform.claude.com/docs/en/about-claude/pricing.md")
 }

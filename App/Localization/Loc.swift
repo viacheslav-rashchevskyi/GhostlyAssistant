@@ -34,7 +34,7 @@ enum Loc {
         "Тишина": "Silence",
         "Очистить чат": "Clear chat",
         "Ответить": "Answer",
-        "Потрачено за сессию: %d вход · %d кэш · %d выход токенов": "Spent this session: %d input · %d cached · %d output tokens",
+        "Потрачено за сессию: %d вход · %d из кэша · %d в кэш · %d выход токенов": "Spent this session: %d input · %d cache reads · %d cache writes · %d output tokens",
         "Собеседник": "Participant",
         "распознаю речь": "recognizing speech",
         "Распознаю": "Recognizing",
