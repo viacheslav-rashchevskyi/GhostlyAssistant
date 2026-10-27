@@ -6,7 +6,7 @@ struct GhostlyAssistantApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("GhostlyAssistant", systemImage: "waveform") {
+        MenuBarExtra("GhostlyAssistant", image: "MenuBarIcon") {
             Button("Показать / скрыть карточку") { appDelegate.toggleCard() }
             Button("Настройки…") { appDelegate.openSettings() }
             Divider()
