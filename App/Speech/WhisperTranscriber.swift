@@ -97,6 +97,15 @@ actor WhisperTranscriber: SpeechTranscribing {
     }
 
     static func delete(_ variant: String) throws {
-        if let folder = installedFolder(variant) { try FileManager.default.removeItem(at: folder) }
+        try removeFiles(variant)
+    }
+
+    /// Removes the model's folder whether it is complete or a cancelled, partial download.
+    static func removeFiles(_ variant: String) throws {
+        let fm = FileManager.default
+        guard let walker = fm.enumerator(at: modelsBase, includingPropertiesForKeys: nil) else { return }
+        var folders: [URL] = []
+        for case let url as URL in walker where url.lastPathComponent == repoPrefix + variant { folders.append(url) }
+        for folder in folders { try fm.removeItem(at: folder) }
     }
 }

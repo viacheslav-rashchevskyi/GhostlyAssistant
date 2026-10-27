@@ -473,6 +473,14 @@ private struct WhisperRow: View {
             if let progress {
                 ProgressView(value: progress).frame(width: 60)
                 Text("\(Int(progress * 100))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Button {
+                    model.cancelWhisperDownload(info.variant)
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(L("Отменить загрузку"))
             } else if loading {
                 ProgressView().controlSize(.small)
                 Text(L("загружаю")).font(.caption).foregroundStyle(.secondary)

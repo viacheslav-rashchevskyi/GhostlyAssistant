@@ -124,6 +124,7 @@ enum Loc {
         "загружаю": "loading",
         "удаляю": "deleting",
         "Скачать": "Download",
+        "Отменить загрузку": "Cancel download",
         "Удалить с диска": "Delete from disk",
         "Модель используется — сначала выберите другую": "In use — select another model first",
         "Удалить модель «%@»?": "Delete the “%@” model?",

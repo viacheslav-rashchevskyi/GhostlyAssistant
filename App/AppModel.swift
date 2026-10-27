@@ -203,11 +203,13 @@ final class AppModel: ObservableObject {
         whisperDiskBytes = WhisperTranscriber.diskUsage()
     }
 
+    private var whisperTasks: [String: Task<Void, Never>] = [:]
+
     func downloadWhisper(_ variant: String) {
         guard whisperDownloads[variant] == nil else { return }
         whisperError = nil
         whisperDownloads[variant] = 0
-        Task {
+        whisperTasks[variant] = Task {
             do {
                 _ = try await WhisperTranscriber.download(variant) { [weak self] p in
                     Task { @MainActor in
@@ -215,10 +217,9 @@ final class AppModel: ObservableObject {
                     }
                 }
             } catch {
-                whisperError = L("Не удалось скачать модель: %@", error.localizedDescription)
+                handleWhisperFailure(variant, error, message: "Не удалось скачать модель: %@")
             }
-            whisperDownloads[variant] = nil
-            refreshInstalledWhisper()
+            finishWhisperTask(variant)
         }
     }
 
@@ -228,22 +229,42 @@ final class AppModel: ObservableObject {
         whisperError = nil
         whisperLoading = variant
         if !installedWhisper.contains(variant) { whisperDownloads[variant] = 0 }
-        Task {
+        whisperTasks[variant] = Task {
             do {
                 try await whisper.load(variant: variant) { [weak self] p in
                     Task { @MainActor in
                         if self?.whisperDownloads[variant] != nil { self?.whisperDownloads[variant] = p }
                     }
                 }
+                try Task.checkCancellation()
                 whisperVariant = variant
                 UserDefaults.standard.set(variant, forKey: "whisperModel")
             } catch {
-                whisperError = L("Не удалось загрузить модель: %@", error.localizedDescription)
+                handleWhisperFailure(variant, error, message: "Не удалось загрузить модель: %@")
             }
-            whisperDownloads[variant] = nil
             whisperLoading = nil
-            refreshInstalledWhisper()
+            finishWhisperTask(variant)
         }
+    }
+
+    /// Stops a running download; the partly downloaded files are removed and the previous model stays in use.
+    func cancelWhisperDownload(_ variant: String) {
+        whisperTasks[variant]?.cancel()
+    }
+
+    private func handleWhisperFailure(_ variant: String, _ error: Error, message: String) {
+        let cancelled = Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
+        if cancelled {
+            try? WhisperTranscriber.removeFiles(variant)
+        } else {
+            whisperError = L(message, error.localizedDescription)
+        }
+    }
+
+    private func finishWhisperTask(_ variant: String) {
+        whisperDownloads[variant] = nil
+        whisperTasks[variant] = nil
+        refreshInstalledWhisper()
     }
 
     /// The model in use can't be deleted; the user picks another one first.
