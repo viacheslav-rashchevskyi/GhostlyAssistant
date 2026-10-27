@@ -64,12 +64,13 @@ struct SettingsView: View {
         }
         .scrollIndicators(.never)
         .id(model.uiLanguage) // rebuild every string when the interface language changes
+        .tint(Theme.accent)
         .frame(minWidth: 460, minHeight: 420)
         .environment(\.colorScheme, .dark)
     }
 }
 
-private let accent = LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+private let accent = Theme.accent
 
 private struct SettingsHeader: View {
     let status: CardStatus
@@ -108,7 +109,6 @@ private struct SettingsHeader: View {
 
 private struct SettingsCard<Content: View>: View {
     let icon: String
-    let tint: Color
     let title: String
     let subtitle: String
     @ViewBuilder var content: Content
@@ -118,9 +118,9 @@ private struct SettingsCard<Content: View>: View {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(accent)
                     .frame(width: 28, height: 28)
-                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(tint.gradient))
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.raised))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(.headline)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -140,7 +140,7 @@ private struct LanguageCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "globe", tint: .green, title: L("Язык интерфейса"), subtitle: L("Язык меню, чата и настроек")) {
+        SettingsCard(icon: "globe", title: L("Язык интерфейса"), subtitle: L("Язык меню, чата и настроек")) {
             Picker("", selection: $model.uiLanguage) {
                 ForEach(UILanguage.allCases) { Text($0.title).tag($0) }
             }
@@ -158,7 +158,7 @@ private struct APIKeyCard: View {
     @State private var key = ""
 
     var body: some View {
-        SettingsCard(icon: "key.fill", tint: .purple, title: L("Ключ Claude API"),
+        SettingsCard(icon: "key.fill", title: L("Ключ Claude API"),
                      subtitle: L("Хранится только в Связке ключей macOS")) {
             if model.hasAPIKey && !editing {
                 HStack {
@@ -206,7 +206,7 @@ private struct ClaudeModelCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "sparkles", tint: .orange, title: L("Модель Claude"),
+        SettingsCard(icon: "sparkles", title: L("Модель Claude"),
                      subtitle: L("Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход")) {
             CollapsibleList(items: model.claudeModels, isTop: { info in
                 ClaudeCatalogFallback.top.contains(info.id) || info.model == model.claudeModel
@@ -315,11 +315,7 @@ private struct SelectableRow<Content: View>: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? Color.purple.opacity(0.16) : Color.white.opacity(hovering ? 0.07 : 0.03))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(selected ? AnyShapeStyle(accent.opacity(0.7)) : AnyShapeStyle(Color.clear), lineWidth: 1)
+                    .fill(selected ? Theme.accentSoft : Color.white.opacity(hovering ? 0.07 : 0.03))
             )
         }
         .buttonStyle(.plain)
@@ -344,47 +340,24 @@ private struct ActiveStatus: View {
     }
 }
 
-/// A small glass capsule with an icon, tinted by its kind.
+/// A small flat capsule: the accent for "recommended", a neutral tone step for "downloaded".
 private struct Badge: View {
     enum Kind { case recommended, downloaded }
 
     let text: String
     let kind: Kind
 
-    private var icon: String {
-        switch kind {
-        case .recommended: "sparkle"
-        case .downloaded: "arrow.down.circle.fill"
-        }
-    }
-
-    private var colors: [Color] {
-        switch kind {
-        case .recommended: [Color(red: 0.25, green: 0.85, blue: 0.55), Color(red: 0.2, green: 0.75, blue: 0.85)]
-        case .downloaded: [Color(red: 0.35, green: 0.55, blue: 1), Color(red: 0.35, green: 0.55, blue: 1)]
-        }
-    }
-
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: icon).font(.system(size: 8, weight: .bold))
+            Image(systemName: kind == .recommended ? "sparkle" : "arrow.down.circle.fill")
+                .font(.system(size: 8, weight: .bold))
             Text(text.prefix(1).uppercased() + text.dropFirst())
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(kind == .downloaded ? AnyShapeStyle(colors[0]) : AnyShapeStyle(.white))
+        .foregroundStyle(kind == .recommended ? Theme.onAccent : Color.secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
-        .background {
-            if kind == .downloaded {
-                Capsule().fill(colors[0].opacity(0.16))
-                    .overlay(Capsule().strokeBorder(colors[0].opacity(0.45), lineWidth: 0.75))
-            } else {
-                Capsule()
-                    .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
-                    .shadow(color: colors[0].opacity(0.45), radius: 4, y: 1)
-            }
-        }
+        .background(Capsule().fill(kind == .recommended ? Theme.accent : Theme.raised))
         .fixedSize()
     }
 }
@@ -395,7 +368,7 @@ private struct WhisperModelCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "cpu", tint: .indigo, title: L("Модель распознавания"),
+        SettingsCard(icon: "cpu", title: L("Модель распознавания"),
                      subtitle: L("Версия Whisper. Крупнее — точнее, но медленнее")) {
             CollapsibleList(items: WhisperCatalog.models, isTop: { info in
                 WhisperCatalog.top.contains(info.variant) || info.variant == model.whisperVariant
@@ -531,7 +504,7 @@ private struct SpeechCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "waveform", tint: .pink, title: L("Распознавание речи"),
+        SettingsCard(icon: "waveform", title: L("Распознавание речи"),
                      subtitle: L("Whisper работает на Mac, без интернета")) {
             LanguageRow(icon: "person.wave.2.fill", title: L("Собеседники в звонке"),
                         hint: L("Что слушает Whisper из звука Zoom"), selection: $model.callLanguage)
@@ -581,7 +554,7 @@ private struct KnowledgeCard: View {
     private var state: KnowledgeState { model.knowledge }
 
     var body: some View {
-        SettingsCard(icon: "books.vertical.fill", tint: .blue, title: L("База знаний"),
+        SettingsCard(icon: "books.vertical.fill", title: L("База знаний"),
                      subtitle: L("Необязательно. PDF, Word, текст, Markdown и картинки")) {
             DropZone(targeted: dropTargeted, choose: choose)
                 .dropDestination(for: URL.self) { urls, _ in
@@ -658,7 +631,7 @@ private struct DropZone: View {
         )
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(targeted ? Color.purple.opacity(0.12) : Color.clear)
+                .fill(targeted ? Theme.accentSoft : Color.clear)
         )
         .scaleEffect(targeted ? 1.01 : 1)
         .animation(.spring(duration: 0.3), value: targeted)
@@ -727,7 +700,7 @@ private struct ModeBadge: View {
                     Image(systemName: "bolt.fill").foregroundStyle(.yellow)
                     Text(L("Целиком в контексте · %@ токенов", state.tokens.formatted()))
                 case .search:
-                    Image(systemName: "magnifyingglass").foregroundStyle(.cyan)
+                    Image(systemName: "magnifyingglass").foregroundStyle(accent)
                     Text(L("Поиск по базе · %@ токенов", state.tokens.formatted()))
                 case .none:
                     Image(systemName: "questionmark.circle")
@@ -755,7 +728,7 @@ private struct ScreenShareCard: View {
     ]
 
     var body: some View {
-        SettingsCard(icon: "eye.slash.fill", tint: .teal, title: L("Демонстрация экрана"),
+        SettingsCard(icon: "eye.slash.fill", title: L("Демонстрация экрана"),
                      subtitle: L("Как спрятать чат от трансляции в Zoom")) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(steps.enumerated()), id: \.offset) { i, step in

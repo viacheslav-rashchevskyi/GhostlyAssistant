@@ -22,6 +22,7 @@ struct ChatView: View {
         }
         .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220, maxHeight: .infinity)
         .id(model.uiLanguage) // rebuild every string when the interface language changes
+        .tint(Theme.accent)
         // The glass itself is the panel's AppKit NSGlassEffectView: SwiftUI glass at the root blurred the whole
         // window rectangle, which showed as square corners around the rounded card.
         .focusEffectDisabled()
@@ -80,8 +81,8 @@ private struct ListeningPill: View {
         .font(.caption2.weight(.medium))
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .foregroundStyle(active ? Color.red : Color.secondary)
-        .background(Capsule().fill(active ? Color.red.opacity(0.15) : Color.white.opacity(0.06)))
+        .foregroundStyle(active ? Theme.accent : Color.secondary)
+        .background(Capsule().fill(active ? Theme.accentSoft : Color.white.opacity(0.06)))
         .animation(.smooth, value: active)
     }
 }
@@ -167,13 +168,10 @@ private struct UserBubble: View {
     var body: some View {
         Text(text)
             .font(.callout)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [.purple.opacity(0.85), .blue.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            )
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent))
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.leading, 40)
     }
@@ -227,14 +225,7 @@ private struct AssistantBubble: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(LinearGradient(colors: [.purple.opacity(0.6), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-                    )
-            )
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.raised))
             .animation(.smooth, value: turn.step)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -304,18 +295,18 @@ private struct PipelineSteps: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
-        .foregroundStyle(index == active ? Color.white : (index < active ? Color.secondary : Color.secondary.opacity(0.5)))
+        .foregroundStyle(index == active ? Theme.accent : (index < active ? Color.secondary : Color.secondary.opacity(0.5)))
         .background {
             if index == active {
                 Capsule()
-                    .fill(LinearGradient(colors: [.purple.opacity(0.7), .cyan.opacity(0.5)], startPoint: .leading, endPoint: .trailing))
+                    .fill(Theme.accentSoft)
                     .matchedGeometryEffect(id: "marker", in: marker)
             }
         }
     }
 }
 
-/// The Ghostly ghost in the purple→cyan accent gradient; gently pulses while the assistant is working.
+/// The Ghostly ghost, white like the app icon; gently pulses while the assistant is working.
 private struct GhostGlyph: View {
     let size: CGFloat
     var pulsing = false
@@ -326,7 +317,7 @@ private struct GhostGlyph: View {
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
-            .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .foregroundStyle(.primary)
             .phaseAnimator([false, true]) { content, phase in
                 content
                     .opacity(pulsing && phase ? 0.45 : 1)
@@ -361,7 +352,7 @@ private struct EmptyChat: View {
         VStack(spacing: 10) {
             Image(systemName: "waveform.circle")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .foregroundStyle(Theme.accent)
                 .symbolEffect(.breathe, options: .repeating)
             Text(L("Слушаю звонок"))
                 .font(.headline)
@@ -459,7 +450,7 @@ private struct InputBar: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 22))
                         .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, canSend ? AnyShapeStyle(LinearGradient(colors: [.purple, .blue], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Color.white.opacity(0.15)))
+                        .foregroundStyle(canSend ? Theme.onAccent : Color.white.opacity(0.5), canSend ? Theme.accent : Color.white.opacity(0.15))
                         .scaleEffect(canSend ? 1 : 0.9)
                 }
                 .buttonStyle(.plain)
