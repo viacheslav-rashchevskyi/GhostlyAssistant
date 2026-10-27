@@ -154,6 +154,7 @@ enum Loc {
         "Нечего читать": "Nothing to read",
         "Демонстрация экрана": "Screen sharing",
         "Как держать чат вне трансляции в любой программе созвонов": "How to keep the chat out of a share in any meeting app",
+        "По умолчанию чат скрыт от демонстрации экрана. Если в какой-то программе он всё же виден, выполните эти шаги:": "By default the chat is hidden from screen sharing. If some app still shows it, follow these steps:",
         "В программе созвонов демонстрируйте отдельное окно, а не весь экран": "In your meeting app, share a single window instead of the whole screen",
         "Или транслируйте другой дисплей, а чат держите на экране ноутбука": "Or share another display and keep the chat on the laptop screen",
         "Работает в Zoom, Google Meet, Teams, Discord и других: в трансляцию попадает только выбранное окно или дисплей.": "Works in Zoom, Google Meet, Teams, Discord and others: only the chosen window or display is shared.",

@@ -730,6 +730,9 @@ private struct ScreenShareCard: View {
     var body: some View {
         SettingsCard(icon: "eye.slash.fill", title: L("Демонстрация экрана"),
                      subtitle: L("Как держать чат вне трансляции в любой программе созвонов")) {
+            Text(L("По умолчанию чат скрыт от демонстрации экрана. Если в какой-то программе он всё же виден, выполните эти шаги:"))
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
