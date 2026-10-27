@@ -12,7 +12,7 @@ struct ChatView: View {
             Divider().opacity(0.25)
             Group {
                 if model.status == .ready {
-                    if model.turns.isEmpty { EmptyChat() } else { Messages(turns: model.turns) }
+                    if model.turns.isEmpty { EmptyChat() } else { Messages(model: model) }
                 } else {
                     StatusNotice(status: model.status, openSettings: openSettings)
                 }
@@ -42,6 +42,13 @@ private struct ChatHeader: View {
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
             ListeningPill(active: model.audioPresent)
             Spacer()
+            if model.sessionCost.usd > 0 {
+                Text(model.sessionCost.label)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                    .help(L("Потрачено за сессию: %d вход · %d кэш · %d выход токенов", model.sessionUsage.inputTokens, model.sessionUsage.cacheReadTokens, model.sessionUsage.outputTokens))
+            }
             if let latency = model.latestLatency {
                 Label(latency.localizedLabel, systemImage: "bolt.fill")
                     .labelStyle(.titleAndIcon)
@@ -89,18 +96,18 @@ private struct ListeningPill: View {
 // MARK: - Messages
 
 private struct Messages: View {
-    let turns: [ChatTurn]
+    @ObservedObject var model: AppModel
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(turns) { turn in
-                    TurnView(turn: turn)
+                ForEach(model.turns) { turn in
+                    TurnView(turn: turn) { model.answerSkipped(turn.id) }
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                 }
             }
             .padding(12)
-            .animation(.spring(duration: 0.35, bounce: 0.2), value: turns.map(\.id)) // only on insert/remove, not on every streamed word
+            .animation(.spring(duration: 0.35, bounce: 0.2), value: model.turns.map(\.id)) // only on insert/remove, not on every streamed word
         }
         .scrollIndicators(.never)
         .defaultScrollAnchor(.bottom)
@@ -109,10 +116,11 @@ private struct Messages: View {
 
 private struct TurnView: View {
     let turn: ChatTurn
+    let answer: () -> Void
 
     var body: some View {
         if turn.isSkipped {
-            SkippedLine(turn: turn)
+            SkippedLine(turn: turn, answer: answer)
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 if turn.source == .user {
@@ -239,6 +247,8 @@ private struct AssistantBubble: View {
 /// Chatter that wasn't a question: one quiet line instead of a bubble.
 private struct SkippedLine: View {
     let turn: ChatTurn
+    let answer: () -> Void
+    @State private var hovering = false
 
     private var reason: String {
         switch turn.step {
@@ -248,6 +258,10 @@ private struct SkippedLine: View {
         }
     }
 
+    private var canAnswer: Bool {
+        turn.question != nil && turn.step != .skipped(.nothingHeard)
+    }
+
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "ear").font(.caption2)
@@ -255,10 +269,23 @@ private struct SkippedLine: View {
                 Text("«\(q)»").lineLimit(1).truncationMode(.tail)
             }
             Text("· \(reason)").layoutPriority(1)
+            if canAnswer {
+                Spacer(minLength: 4)
+                Button(action: answer) {
+                    Label(L("Ответить"), systemImage: "arrowshape.turn.up.left.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Theme.accent)
+                }
+                .buttonStyle(.plain)
+                .opacity(hovering ? 1 : 0.6)
+            }
         }
         .font(.caption2)
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
     }
 }
 

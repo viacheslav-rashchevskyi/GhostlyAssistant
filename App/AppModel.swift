@@ -63,6 +63,26 @@ final class AppModel: ObservableObject {
         }
     }
     @Published private(set) var knowledge = KnowledgeState()
+    @Published private(set) var sessionUsage = TokenUsage()
+    @Published private(set) var sessionCost = SessionCost(usd: 0)
+    @Published var answerStyle = AppModel.storedStyle() {
+        didSet {
+            UserDefaults.standard.set(answerStyle.length.rawValue, forKey: "answerLength")
+            UserDefaults.standard.set(answerStyle.custom, forKey: "answerCustom")
+            let style = answerStyle
+            Task { await pipeline?.setStyle(style) }
+        }
+    }
+    @Published var fontScale: Double = UserDefaults.standard.object(forKey: "fontScale") as? Double ?? 1 {
+        didSet { UserDefaults.standard.set(fontScale, forKey: "fontScale") }
+    }
+    @Published var launchAtLogin = LaunchAtLogin.isEnabled {
+        didSet {
+            guard launchAtLogin != oldValue else { return }
+            do { try LaunchAtLogin.set(launchAtLogin) }
+            catch { launchAtLogin = oldValue }
+        }
+    }
     @Published var callLanguage: SpeechLanguage = AppModel.storedLanguage("callLanguage", default: .uk) {
         didSet {
             UserDefaults.standard.set(callLanguage.rawValue, forKey: "callLanguage")
@@ -145,6 +165,7 @@ final class AppModel: ObservableObject {
                 knowledge: store
             )
             await pipeline.setModel(claudeModel)
+            await pipeline.setStyle(answerStyle)
             install(pipeline)
             Task { await refreshClaudeModels() }
             Task { await reloadKnowledge() }
@@ -334,6 +355,27 @@ final class AppModel: ObservableObject {
         turns.removeAll()
     }
 
+    /// Answer a heard reply the assistant skipped (clicked or via hotkey).
+    func answerSkipped(_ id: UUID) {
+        guard let pipeline else { return }
+        Task { await pipeline.answer(utteranceId: id) }
+    }
+
+    func answerLastSkipped() {
+        guard let pipeline else { return }
+        Task { await pipeline.answerLastSkipped() }
+    }
+
+    /// Price of the model that answers now: the live price when known, else the built-in table.
+    private var activePrice: ClaudePrice {
+        claudeModels.first { $0.model == claudeModel }.flatMap { claudePrices[$0.displayName] } ?? claudeModel.price ?? ClaudePrice(input: 0, output: 0)
+    }
+
+    private static func storedStyle() -> AnswerStyle {
+        let length = UserDefaults.standard.string(forKey: "answerLength").flatMap(AnswerStyle.Length.init(rawValue:)) ?? .balanced
+        return AnswerStyle(length: length, custom: UserDefaults.standard.string(forKey: "answerCustom") ?? "")
+    }
+
     /// Push-to-talk: the first call starts recording, the second transcribes it in the user's language and asks it.
     func toggleMic() {
         switch mic {
@@ -408,11 +450,13 @@ final class AppModel: ObservableObject {
             update(id) { $0.answer += text }
         case .kbLookup(let id):
             update(id) { $0.step = .searching }
-        case .answerFinished(let id, let latency):
+        case .answerFinished(let id, let latency, let usage):
             update(id) {
                 $0.step = .done
                 $0.latency = latency
             }
+            sessionUsage.add(usage)
+            sessionCost = SessionCost(usd: sessionUsage.cost(price: activePrice))
         case .answerFailed(let id, let message):
             update(id) {
                 $0.step = .done

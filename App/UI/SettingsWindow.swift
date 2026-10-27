@@ -53,8 +53,10 @@ struct SettingsView: View {
                 LanguageCard(model: model)
                 APIKeyCard(model: model)
                 ClaudeModelCard(model: model)
+                AnswerStyleCard(model: model)
                 SpeechCard(model: model)
                 WhisperModelCard(model: model)
+                AppearanceCard(model: model)
                 KnowledgeCard(model: model)
                 ScreenShareCard()
             }
@@ -494,6 +496,75 @@ private struct WhisperRow: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .frame(width: 54, alignment: .trailing)
+        }
+    }
+}
+
+// MARK: - Answer style
+
+private struct AnswerStyleCard: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        SettingsCard(icon: "text.bubble.fill", title: L("Стиль ответов"),
+                     subtitle: L("Насколько подробно и в каком тоне отвечать")) {
+            Picker("", selection: Binding(
+                get: { model.answerStyle.length },
+                set: { model.answerStyle.length = $0 }
+            )) {
+                Text(L("Коротко")).tag(AnswerStyle.Length.brief)
+                Text(L("Обычно")).tag(AnswerStyle.Length.balanced)
+                Text(L("Подробно")).tag(AnswerStyle.Length.detailed)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L("Свои инструкции (необязательно)")).font(.caption).foregroundStyle(.secondary)
+                TextField(L("Например: отвечай как студент, защищающий курсовую"),
+                          text: Binding(get: { model.answerStyle.custom }, set: { model.answerStyle.custom = $0 }),
+                          axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(2...4)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07)))
+            }
+        }
+    }
+}
+
+// MARK: - Appearance
+
+private struct AppearanceCard: View {
+    @ObservedObject var model: AppModel
+
+    private let sizes: [(String, Double)] = [("А", 0.9), ("А", 1.0), ("А", 1.15), ("А", 1.3)]
+
+    var body: some View {
+        SettingsCard(icon: "slider.horizontal.3", title: L("Вид и запуск"),
+                     subtitle: L("Размер текста в чате и автозапуск")) {
+            HStack(spacing: 10) {
+                Text(L("Размер текста")).frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(Array(sizes.enumerated()), id: \.offset) { i, item in
+                    Button {
+                        model.fontScale = item.1
+                    } label: {
+                        Text(item.0)
+                            .font(.system(size: 11 + CGFloat(i) * 3, weight: .medium))
+                            .frame(width: 26, height: 26)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(abs(model.fontScale - item.1) < 0.01 ? Theme.accentSoft : Color.white.opacity(0.05)))
+                            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(abs(model.fontScale - item.1) < 0.01 ? Theme.accent : Color.clear, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Toggle(isOn: $model.launchAtLogin) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L("Запускать при входе в систему"))
+                    Text(L("GhostlyAssistant будет готов сразу после включения Mac")).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .tint(Theme.accent)
         }
     }
 }

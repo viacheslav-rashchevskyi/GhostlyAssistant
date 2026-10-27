@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private var panel: CardPanel?
     private var settings: SettingsWindowController?
-    private var hotKey: HotKey?
+    private var hotKeys: [HotKey] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let path = DebugCommandLine.transcribePath {
@@ -52,7 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.ensureOnScreen()
         panel.orderFrontRegardless()
         self.panel = panel
-        hotKey = HotKey.toggleCard { [weak self] in self?.toggleCard() }
+        hotKeys = [
+            HotKey.toggleCard { [weak self] in self?.toggleCard() },
+            HotKey.answerLast { [weak self] in self?.model.answerLastSkipped() }
+        ]
         Task { await model.start() }
         // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
         if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
