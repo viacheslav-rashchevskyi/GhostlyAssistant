@@ -62,6 +62,7 @@ public actor AssistantPipeline {
     private let now: @Sendable () -> Date
     private var transcript = TranscriptBuffer()
     private var model = ClaudeModel.haiku
+    private var style = AnswerStyle()
     /// Heard utterances that weren't answered, so the user can ask for an answer anyway (newest last).
     private var skipped: [(id: UUID, text: String)] = []
 
@@ -82,6 +83,10 @@ public actor AssistantPipeline {
 
     public func setModel(_ model: ClaudeModel) {
         self.model = model
+    }
+
+    public func setStyle(_ style: AnswerStyle) {
+        self.style = style
     }
 
     public func handle(_ u: Utterance) async {
@@ -169,7 +174,7 @@ public actor AssistantPipeline {
     private func answer(_ ctx: AnswerContext, id: UUID, startedAt: Date) async {
         let kb = await knowledge.payload()
         let tools = await knowledge.tools()
-        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools, model: model)
+        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools, model: model, style: style)
         var gate = AnswerGate()
         var started = false
         var fullText = ""

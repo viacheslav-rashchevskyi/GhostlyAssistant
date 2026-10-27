@@ -80,7 +80,7 @@ public struct CountTokensRequest: Encodable, Equatable, Sendable {
 public enum RequestBuilder {
     static let maxTokens = 2048
 
-    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku) -> MessagesRequest {
+    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle()) -> MessagesRequest {
         var content = kbBlocks(kb)
         if !ctx.recentTranscript.isEmpty {
             content.append(.text("<recent_transcript>\n\(ctx.recentTranscript.joined(separator: "\n"))\n</recent_transcript>"))
@@ -98,7 +98,7 @@ public enum RequestBuilder {
             model: model.id,
             maxTokens: maxTokens,
             stream: true,
-            system: system(kb),
+            system: system(kb, style: style),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
             thinking: model.thinking,
@@ -134,9 +134,13 @@ public enum RequestBuilder {
         CountTokensRequest(model: model.id, system: [], messages: [Message(role: .user, content: kb)], tools: nil)
     }
 
-    private static func system(_ kb: KBPayload) -> [ContentBlock] {
-        if case .inline = kb { return [.text(SystemPrompt.text)] }
-        return [.text(SystemPrompt.text, cache: .oneHour)]
+    private static func system(_ kb: KBPayload, style: AnswerStyle = AnswerStyle()) -> [ContentBlock] {
+        let cacheBase: CacheTTL? = { if case .inline = kb { nil } else { .oneHour } }()
+        guard let instruction = style.instruction else {
+            return [.text(SystemPrompt.text, cache: cacheBase)]
+        }
+        // The style block is last, so it carries the cache marker and the prompt stays a stable cached prefix.
+        return [.text(SystemPrompt.text), .text(instruction, cache: cacheBase)]
     }
 
     private static func kbBlocks(_ kb: KBPayload) -> [ContentBlock] {
