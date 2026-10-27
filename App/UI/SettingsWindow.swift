@@ -326,6 +326,7 @@ private struct WhisperRow: View {
     private var installed: Bool { model.installedWhisper.contains(info.variant) }
     private var progress: Double? { model.whisperDownloads[info.variant] }
     private var loading: Bool { model.whisperLoading == info.variant }
+    private var deleting: Bool { model.whisperDeleting.contains(info.variant) }
 
     var body: some View {
         SelectableRow(selected: selected) {
@@ -341,7 +342,9 @@ private struct WhisperRow: View {
             Spacer()
             status
         }
-        .disabled(model.whisperLoading != nil && !loading)
+        .disabled((model.whisperLoading != nil && !loading) || deleting)
+        .animation(.smooth, value: deleting)
+        .animation(.smooth, value: installed)
     }
 
     @State private var confirmDelete = false
@@ -355,6 +358,10 @@ private struct WhisperRow: View {
             } else if loading {
                 ProgressView().controlSize(.small)
                 Text("загружаю").font(.caption).foregroundStyle(.secondary)
+            } else if deleting {
+                ProgressView().controlSize(.small)
+                Text("удаляю").font(.caption).foregroundStyle(.secondary)
+                    .transition(.opacity)
             } else if installed {
                 Badge(text: selected ? "выбрана" : "скачана", color: selected ? .purple : .blue)
                 Button {

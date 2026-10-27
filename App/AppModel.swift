@@ -80,6 +80,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var whisperLoading: String?
     @Published private(set) var whisperError: String?
     @Published private(set) var whisperDiskBytes: Int64 = 0
+    @Published private(set) var whisperDeleting: Set<String> = []
     @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
         didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
     }
@@ -214,13 +215,23 @@ final class AppModel: ObservableObject {
 
     /// The model in use can't be deleted; the user picks another one first.
     func deleteWhisper(_ variant: String) {
-        guard variant != whisperVariant else { return }
-        do {
-            try WhisperTranscriber.delete(variant)
-        } catch {
-            whisperError = "Не удалось удалить модель: \(error.localizedDescription)"
+        guard variant != whisperVariant, !whisperDeleting.contains(variant) else { return }
+        whisperError = nil
+        whisperDeleting.insert(variant)
+        Task {
+            // Removing hundreds of megabytes takes a moment; keep it off the main thread.
+            let failure = await Task.detached { () -> String? in
+                do {
+                    try WhisperTranscriber.delete(variant)
+                    return nil
+                } catch {
+                    return error.localizedDescription
+                }
+            }.value
+            if let failure { whisperError = "Не удалось удалить модель: \(failure)" }
+            whisperDeleting.remove(variant)
+            refreshInstalledWhisper()
         }
-        refreshInstalledWhisper()
     }
 
     // MARK: Knowledge base
