@@ -10,7 +10,7 @@ enum SpeechLanguage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .auto: "Автоопределение"
+        case .auto: L("Автоопределение")
         case .uk: "Українська"
         case .ru: "Русский"
         case .en: "English"

@@ -17,10 +17,10 @@ enum ClaudeCatalogFallback {
 
     /// A short Russian note on what the model is good for in a live call.
     static func note(for id: String) -> String {
-        if id.contains("fable") || id.contains("mythos") { return "Самая мощная — долго думает, для звонка медленная" }
-        if id.contains("opus") { return "Умная, отвечает медленнее" }
-        if id.contains("sonnet") { return "Баланс ума и скорости" }
-        if id.contains("haiku") { return "Самая быстрая — для живого звонка" }
-        return "Модель Claude"
+        if id.contains("fable") || id.contains("mythos") { return L("Самая мощная — долго думает, для звонка медленная") }
+        if id.contains("opus") { return L("Умная, отвечает медленнее") }
+        if id.contains("sonnet") { return L("Баланс ума и скорости") }
+        if id.contains("haiku") { return L("Самая быстрая — для живого звонка") }
+        return L("Модель Claude")
     }
 }

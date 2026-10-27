@@ -56,6 +56,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var micLevel: Float = 0
     @Published private(set) var micError: String?
     @Published var isCardVisible = true
+    @Published var uiLanguage: UILanguage = Loc.language {
+        didSet {
+            Loc.language = uiLanguage
+            UserDefaults.standard.set(uiLanguage.rawValue, forKey: "uiLanguage")
+        }
+    }
     @Published private(set) var knowledge = KnowledgeState()
     @Published var callLanguage: SpeechLanguage = AppModel.storedLanguage("callLanguage", default: .uk) {
         didSet {
@@ -152,7 +158,7 @@ final class AppModel: ObservableObject {
             status = .ready
         } catch {
             Self.log.error("start failed: \(error.localizedDescription, privacy: .public)")
-            status = .error("Не удалось запустить: \(error.localizedDescription)")
+            status = .error(L("Не удалось запустить: %@", error.localizedDescription))
         }
     }
 
@@ -209,7 +215,7 @@ final class AppModel: ObservableObject {
                     }
                 }
             } catch {
-                whisperError = "Не удалось скачать модель: \(error.localizedDescription)"
+                whisperError = L("Не удалось скачать модель: %@", error.localizedDescription)
             }
             whisperDownloads[variant] = nil
             refreshInstalledWhisper()
@@ -232,7 +238,7 @@ final class AppModel: ObservableObject {
                 whisperVariant = variant
                 UserDefaults.standard.set(variant, forKey: "whisperModel")
             } catch {
-                whisperError = "Не удалось загрузить модель: \(error.localizedDescription)"
+                whisperError = L("Не удалось загрузить модель: %@", error.localizedDescription)
             }
             whisperDownloads[variant] = nil
             whisperLoading = nil
@@ -255,7 +261,7 @@ final class AppModel: ObservableObject {
                     return error.localizedDescription
                 }
             }.value
-            if let failure { whisperError = "Не удалось удалить модель: \(failure)" }
+            if let failure { whisperError = L("Не удалось удалить модель: %@", failure) }
             whisperDeleting.remove(variant)
             refreshInstalledWhisper()
         }
@@ -320,7 +326,7 @@ final class AppModel: ObservableObject {
                 let text = (try? await whisper.transcribe(samples, language: micLanguage.code)) ?? ""
                 mic = .idle
                 if text.isEmpty {
-                    micError = "Не расслышал, попробуйте ещё раз"
+                    micError = L("Не расслышал, попробуйте ещё раз")
                 } else {
                     ask(text)
                 }
@@ -333,7 +339,7 @@ final class AppModel: ObservableObject {
     private func startRecording() async {
         micError = nil
         guard await MicRecorder.requestAccess() else {
-            micError = "Нет доступа к микрофону — разрешите в Системных настройках"
+            micError = L("Нет доступа к микрофону — разрешите в Системных настройках")
             return
         }
         recorder.onLevel = { [weak self] level in
@@ -343,7 +349,7 @@ final class AppModel: ObservableObject {
             try recorder.start()
             mic = .recording
         } catch {
-            micError = "Микрофон недоступен: \(error.localizedDescription)"
+            micError = L("Микрофон недоступен: %@", error.localizedDescription)
         }
     }
 
@@ -389,7 +395,7 @@ final class AppModel: ObservableObject {
         case .answerFailed(let id, let message):
             update(id) {
                 $0.step = .done
-                $0.error = message
+                $0.error = Loc.coreMessage(message)
             }
         }
         pruneSkipped()

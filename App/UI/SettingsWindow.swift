@@ -21,7 +21,7 @@ final class SettingsWindowController {
                 backing: .buffered,
                 defer: false
             )
-            w.title = "Настройки"
+            w.title = L("Настройки")
             w.titleVisibility = .hidden
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true
@@ -48,6 +48,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsHeader(status: model.status)
+                LanguageCard(model: model)
                 APIKeyCard(model: model)
                 ClaudeModelCard(model: model)
                 SpeechCard(model: model)
@@ -60,6 +61,7 @@ struct SettingsView: View {
             .padding(.bottom, 22)
         }
         .scrollIndicators(.never)
+        .id(model.uiLanguage) // rebuild every string when the interface language changes
         .frame(minWidth: 460, minHeight: 420)
         .background(.ultraThinMaterial)
         .background(Color.black.opacity(0.35))
@@ -74,11 +76,11 @@ private struct SettingsHeader: View {
 
     private var statusText: (String, Color) {
         switch status {
-        case .ready: ("Работает", .green)
-        case .needsKey: ("Нужен ключ API", .orange)
-        case .needsPermission: ("Нужно разрешение на запись экрана", .orange)
-        case .downloadingModel: ("Загружается модель распознавания", .blue)
-        case .error: ("Ошибка запуска", .red)
+        case .ready: (L("Работает"), .green)
+        case .needsKey: (L("Нужен ключ API"), .orange)
+        case .needsPermission: (L("Нужно разрешение на запись экрана"), .orange)
+        case .downloadingModel: (L("Загружается модель распознавания"), .blue)
+        case .error: (L("Ошибка запуска"), .red)
         }
     }
 
@@ -132,6 +134,22 @@ private struct SettingsCard<Content: View>: View {
     }
 }
 
+// MARK: - Interface language
+
+private struct LanguageCard: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        SettingsCard(icon: "globe", tint: .green, title: L("Язык интерфейса"), subtitle: L("Язык меню, чата и настроек")) {
+            Picker("", selection: $model.uiLanguage) {
+                ForEach(UILanguage.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+    }
+}
+
 // MARK: - API key
 
 private struct APIKeyCard: View {
@@ -140,14 +158,14 @@ private struct APIKeyCard: View {
     @State private var key = ""
 
     var body: some View {
-        SettingsCard(icon: "key.fill", tint: .purple, title: "Ключ Claude API",
-                     subtitle: "Хранится только в Связке ключей macOS") {
+        SettingsCard(icon: "key.fill", tint: .purple, title: L("Ключ Claude API"),
+                     subtitle: L("Хранится только в Связке ключей macOS")) {
             if model.hasAPIKey && !editing {
                 HStack {
-                    Label("Ключ сохранён", systemImage: "checkmark.seal.fill")
+                    Label(L("Ключ сохранён"), systemImage: "checkmark.seal.fill")
                         .foregroundStyle(.green)
                     Spacer()
-                    Button("Заменить") { withAnimation(.smooth) { editing = true } }
+                    Button(L("Заменить")) { withAnimation(.smooth) { editing = true } }
                         .buttonStyle(.glass)
                 }
                 .transition(.blurReplace)
@@ -159,16 +177,16 @@ private struct APIKeyCard: View {
                         .padding(.vertical, 7)
                         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07)))
                         .onSubmit(save)
-                    Button("Сохранить", action: save)
+                    Button(L("Сохранить"), action: save)
                         .buttonStyle(.glassProminent)
                         .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
                     if model.hasAPIKey {
-                        Button("Отмена") { withAnimation(.smooth) { editing = false; key = "" } }
+                        Button(L("Отмена")) { withAnimation(.smooth) { editing = false; key = "" } }
                             .buttonStyle(.glass)
                     }
                 }
                 .transition(.blurReplace)
-                Link("Где взять ключ →", destination: URL(string: "https://console.anthropic.com/settings/keys")!)
+                Link(L("Где взять ключ →"), destination: URL(string: "https://console.anthropic.com/settings/keys")!)
                     .font(.caption)
             }
         }
@@ -188,8 +206,8 @@ private struct ClaudeModelCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "sparkles", tint: .orange, title: "Модель Claude",
-                     subtitle: "Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход") {
+        SettingsCard(icon: "sparkles", tint: .orange, title: L("Модель Claude"),
+                     subtitle: L("Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход")) {
             VStack(spacing: 6) {
                 ForEach(model.claudeModels) { info in
                     SelectableRow(selected: model.claudeModel == info.model) {
@@ -198,12 +216,12 @@ private struct ClaudeModelCard: View {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 6) {
                                 Text(info.displayName.replacingOccurrences(of: "Claude ", with: "")).font(.body.weight(.medium))
-                                if info.model == .haiku { Badge(text: "рекомендуется", color: .green) }
+                                if info.model == .haiku { Badge(text: L("рекомендуется"), color: .green) }
                             }
                             Text(ClaudeCatalogFallback.note(for: info.id)).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(model.price(for: info)?.label ?? "цена неизвестна")
+                        Text(model.price(for: info)?.localizedLabel ?? L("цена неизвестна"))
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
@@ -213,19 +231,19 @@ private struct ClaudeModelCard: View {
             HStack(spacing: 8) {
                 if model.claudeModelsLoading {
                     ProgressView().controlSize(.small)
-                    Text("Обновляю список и цены…")
+                    Text(L("Обновляю список и цены…"))
                 } else {
                     Image(systemName: model.claudeModelsFromAPI ? "checkmark.circle.fill" : "exclamationmark.circle")
                         .foregroundStyle(model.claudeModelsFromAPI ? Color.green : Color.orange)
                     Text(model.claudeModelsFromAPI
-                         ? (model.claudePrices.isEmpty ? "Список из API, цены из встроенной таблицы" : "Список из API, цены с anthropic.com")
-                         : "Нет связи с API — показаны известные модели")
+                         ? (model.claudePrices.isEmpty ? L("Список из API, цены из встроенной таблицы") : L("Список из API, цены с anthropic.com"))
+                         : L("Нет связи с API — показаны известные модели"))
                 }
                 Spacer()
                 Button {
                     Task { await model.refreshClaudeModels() }
                 } label: {
-                    Label("Обновить", systemImage: "arrow.clockwise")
+                    Label(L("Обновить"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
@@ -291,8 +309,8 @@ private struct WhisperModelCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "cpu", tint: .indigo, title: "Модель распознавания",
-                     subtitle: "Версия Whisper. Крупнее — точнее, но медленнее") {
+        SettingsCard(icon: "cpu", tint: .indigo, title: L("Модель распознавания"),
+                     subtitle: L("Версия Whisper. Крупнее — точнее, но медленнее")) {
             VStack(spacing: 6) {
                 ForEach(WhisperCatalog.models) { info in
                     WhisperRow(info: info, model: model)
@@ -303,7 +321,7 @@ private struct WhisperModelCard: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
-            Text("Скачано моделей: \(model.installedWhisper.count) · занято на диске \(ByteCountFormatter.string(fromByteCount: model.whisperDiskBytes, countStyle: .file))")
+            Text(L("Скачано моделей: %d · занято на диске %@", model.installedWhisper.count, ByteCountFormatter.string(fromByteCount: model.whisperDiskBytes, countStyle: .file)))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .contentTransition(.numericText())
@@ -321,11 +339,11 @@ private struct WhisperModelCard: View {
                     try? FileManager.default.createDirectory(at: model.whisperFolder, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(model.whisperFolder)
                 } label: {
-                    Label("Открыть", systemImage: "folder.fill")
+                    Label(L("Открыть"), systemImage: "folder.fill")
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
-                .help("Открыть папку с моделями в Finder")
+                .help(L("Открыть папку с моделями в Finder"))
             }
         }
         .onAppear { model.refreshInstalledWhisper() }
@@ -348,8 +366,8 @@ private struct WhisperRow: View {
         } content: {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
-                    Text(info.title).font(.body.weight(.medium))
-                    if info.variant == WhisperCatalog.recommended { Badge(text: "рекомендуется", color: .green) }
+                    Text(L(info.title)).font(.body.weight(.medium))
+                    if info.variant == WhisperCatalog.recommended { Badge(text: L("рекомендуется"), color: .green) }
                 }
                 Text(info.note).font(.caption).foregroundStyle(.secondary)
             }
@@ -371,13 +389,13 @@ private struct WhisperRow: View {
                 Text("\(Int(progress * 100))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             } else if loading {
                 ProgressView().controlSize(.small)
-                Text("загружаю").font(.caption).foregroundStyle(.secondary)
+                Text(L("загружаю")).font(.caption).foregroundStyle(.secondary)
             } else if deleting {
                 ProgressView().controlSize(.small)
-                Text("удаляю").font(.caption).foregroundStyle(.secondary)
+                Text(L("удаляю")).font(.caption).foregroundStyle(.secondary)
                     .transition(.opacity)
             } else if installed {
-                Badge(text: selected ? "выбрана" : "скачана", color: selected ? .purple : .blue)
+                Badge(text: selected ? L("выбрана") : L("скачана"), color: selected ? .purple : .blue)
                 Button {
                     confirmDelete = true
                 } label: {
@@ -386,17 +404,17 @@ private struct WhisperRow: View {
                 .buttonStyle(.glass)
                 .controlSize(.small)
                 .disabled(selected)
-                .help(selected ? "Модель используется — сначала выберите другую" : "Удалить с диска")
-                .confirmationDialog("Удалить модель «\(info.title)»?", isPresented: $confirmDelete) {
-                    Button("Удалить (\(info.sizeLabel))", role: .destructive) { model.deleteWhisper(info.variant) }
+                .help(selected ? L("Модель используется — сначала выберите другую") : L("Удалить с диска"))
+                .confirmationDialog(L("Удалить модель «%@»?", L(info.title)), isPresented: $confirmDelete) {
+                    Button(L("Удалить (%@)", info.sizeLabel), role: .destructive) { model.deleteWhisper(info.variant) }
                 } message: {
-                    Text("Файлы модели будут удалены с диска. Её всегда можно скачать снова.")
+                    Text(L("Файлы модели будут удалены с диска. Её всегда можно скачать снова."))
                 }
             } else {
                 Button {
                     model.downloadWhisper(info.variant)
                 } label: {
-                    Label("Скачать", systemImage: "arrow.down.circle")
+                    Label(L("Скачать"), systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
@@ -415,14 +433,14 @@ private struct SpeechCard: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        SettingsCard(icon: "waveform", tint: .pink, title: "Распознавание речи",
-                     subtitle: "Whisper работает на Mac, без интернета") {
-            LanguageRow(icon: "person.wave.2.fill", title: "Собеседники в звонке",
-                        hint: "Что слушает Whisper из звука Zoom", selection: $model.callLanguage)
+        SettingsCard(icon: "waveform", tint: .pink, title: L("Распознавание речи"),
+                     subtitle: L("Whisper работает на Mac, без интернета")) {
+            LanguageRow(icon: "person.wave.2.fill", title: L("Собеседники в звонке"),
+                        hint: L("Что слушает Whisper из звука Zoom"), selection: $model.callLanguage)
             Divider().opacity(0.3)
-            LanguageRow(icon: "mic.fill", title: "Ваш голос",
-                        hint: "Вопросы, которые вы задаёте кнопкой микрофона", selection: $model.micLanguage)
-            Text("Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса.")
+            LanguageRow(icon: "mic.fill", title: L("Ваш голос"),
+                        hint: L("Вопросы, которые вы задаёте кнопкой микрофона"), selection: $model.micLanguage)
+            Text(L("Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -465,8 +483,8 @@ private struct KnowledgeCard: View {
     private var state: KnowledgeState { model.knowledge }
 
     var body: some View {
-        SettingsCard(icon: "books.vertical.fill", tint: .blue, title: "База знаний",
-                     subtitle: "Необязательно. PDF, Word, текст, Markdown и картинки") {
+        SettingsCard(icon: "books.vertical.fill", tint: .blue, title: L("База знаний"),
+                     subtitle: L("Необязательно. PDF, Word, текст, Markdown и картинки")) {
             DropZone(targeted: dropTargeted, choose: choose)
                 .dropDestination(for: URL.self) { urls, _ in
                     model.addKnowledge(urls)
@@ -487,16 +505,16 @@ private struct KnowledgeCard: View {
                 HStack(spacing: 8) {
                     ModeBadge(state: state)
                     Spacer()
-                    Button("Перечитать") { Task { await model.reloadKnowledge() } }
+                    Button(L("Перечитать")) { Task { await model.reloadKnowledge() } }
                         .buttonStyle(.glass)
                         .disabled(state.isLoading)
-                    Button("Очистить", role: .destructive) { model.clearKnowledge() }
+                    Button(L("Очистить"), role: .destructive) { model.clearKnowledge() }
                         .buttonStyle(.glass)
                 }
 
                 let unreadable = state.skipped.filter { name in !state.paths.contains { $0.lastPathComponent == name } }
                 if !unreadable.isEmpty {
-                    Label("Пропущены: \(unreadable.joined(separator: ", "))", systemImage: "exclamationmark.triangle.fill")
+                    Label(L("Пропущены: %@", unreadable.joined(separator: ", ")), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -512,7 +530,7 @@ private struct KnowledgeCard: View {
         panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .folder,
                                      UTType(filenameExtension: "md") ?? .plainText,
                                      UTType(filenameExtension: "docx") ?? .data]
-        panel.prompt = "Добавить"
+        panel.prompt = L("Добавить")
         if panel.runModal() == .OK { model.addKnowledge(panel.urls) }
     }
 }
@@ -527,9 +545,9 @@ private struct DropZone: View {
                 .font(.system(size: 22))
                 .foregroundStyle(accent)
                 .symbolEffect(.bounce, value: targeted)
-            Text("Перетащите файлы или папку сюда")
+            Text(L("Перетащите файлы или папку сюда"))
                 .font(.callout)
-            Button("Выбрать…", action: choose)
+            Button(L("Выбрать…"), action: choose)
                 .buttonStyle(.glass)
                 .controlSize(.small)
         }
@@ -580,14 +598,14 @@ private struct KnowledgeRow: View {
             }
             Spacer()
             if skipped {
-                Text("не читается").font(.caption2).foregroundStyle(.orange)
+                Text(L("не читается")).font(.caption2).foregroundStyle(.orange)
             }
             Button(action: remove) {
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .opacity(hovering ? 1 : 0.35)
-            .help("Убрать из базы")
+            .help(L("Убрать из базы"))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -604,18 +622,18 @@ private struct ModeBadge: View {
         HStack(spacing: 6) {
             if state.isLoading {
                 ProgressView().controlSize(.mini)
-                Text("Читаю файлы…")
+                Text(L("Читаю файлы…"))
             } else {
                 switch state.mode {
                 case .inline:
                     Image(systemName: "bolt.fill").foregroundStyle(.yellow)
-                    Text("Целиком в контексте · \(state.tokens.formatted()) токенов")
+                    Text(L("Целиком в контексте · %@ токенов", state.tokens.formatted()))
                 case .search:
                     Image(systemName: "magnifyingglass").foregroundStyle(.cyan)
-                    Text("Поиск по базе · \(state.tokens.formatted()) токенов")
+                    Text(L("Поиск по базе · %@ токенов", state.tokens.formatted()))
                 case .none:
                     Image(systemName: "questionmark.circle")
-                    Text("Нечего читать")
+                    Text(L("Нечего читать"))
                 }
             }
         }
@@ -635,12 +653,12 @@ private struct ScreenShareCard: View {
     private let steps = [
         "Zoom → Settings → Share Screen → Advanced",
         "Screen capture mode → «Advanced capture with window filtering»",
-        "Проверьте на устройстве другого участника, что чата не видно"
+        L("Проверьте на устройстве другого участника, что чата не видно")
     ]
 
     var body: some View {
-        SettingsCard(icon: "eye.slash.fill", tint: .teal, title: "Демонстрация экрана",
-                     subtitle: "Как спрятать чат от трансляции в Zoom") {
+        SettingsCard(icon: "eye.slash.fill", tint: .teal, title: L("Демонстрация экрана"),
+                     subtitle: L("Как спрятать чат от трансляции в Zoom")) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -652,12 +670,12 @@ private struct ScreenShareCard: View {
                     }
                 }
             }
-            Text("Если чат всё равно виден — демонстрируйте отдельное окно, а не весь экран, или другой дисплей (чат держите на экране ноутбука).")
+            Text(L("Если чат всё равно виден — демонстрируйте отдельное окно, а не весь экран, или другой дисплей (чат держите на экране ноутбука)."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                Text("Скрыть или показать чат:").font(.callout)
+                Text(L("Скрыть или показать чат:")).font(.callout)
                 ForEach(["⌥", "⌘", "H"], id: \.self) { key in
                     Text(key)
                         .font(.system(.callout, design: .rounded).weight(.medium))

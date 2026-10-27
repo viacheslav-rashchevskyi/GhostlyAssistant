@@ -21,6 +21,7 @@ struct ChatView: View {
             InputBar(model: model)
         }
         .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220, maxHeight: .infinity)
+        .id(model.uiLanguage) // rebuild every string when the interface language changes
         // The glass itself is the panel's AppKit NSGlassEffectView: SwiftUI glass at the root blurred the whole
         // window rectangle, which showed as square corners around the rounded card.
         .focusEffectDisabled()
@@ -41,7 +42,7 @@ private struct ChatHeader: View {
             ListeningPill(active: model.audioPresent)
             Spacer()
             if let latency = model.latestLatency {
-                Label(latency.label, systemImage: "bolt.fill")
+                Label(latency.localizedLabel, systemImage: "bolt.fill")
                     .labelStyle(.titleAndIcon)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -55,7 +56,7 @@ private struct ChatHeader: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.tertiary)
-                .help("Очистить чат")
+                .help(L("Очистить чат"))
             }
         }
         .padding(.horizontal, 14)
@@ -73,7 +74,7 @@ private struct ListeningPill: View {
         HStack(spacing: 4) {
             Image(systemName: "waveform")
                 .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating, isActive: active)
-            Text(active ? "Слушаю" : "Тишина")
+            Text(active ? L("Слушаю") : L("Тишина"))
                 .contentTransition(.opacity)
         }
         .font(.caption2.weight(.medium))
@@ -133,7 +134,7 @@ private struct CallBubble: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Label("Собеседник", systemImage: "person.wave.2.fill")
+            Label(L("Собеседник"), systemImage: "person.wave.2.fill")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
             Group {
@@ -143,7 +144,7 @@ private struct CallBubble: View {
                 } else {
                     HStack(spacing: 6) {
                         TypingDots()
-                        Text("распознаю речь").foregroundStyle(.secondary)
+                        Text(L("распознаю речь")).foregroundStyle(.secondary)
                     }
                     .transition(.blurReplace)
                 }
@@ -201,7 +202,7 @@ private struct AssistantBubble: View {
                     if turn.step == .searching {
                         HStack(spacing: 6) {
                             Image(systemName: "doc.text.magnifyingglass").symbolEffect(.bounce, options: .repeating)
-                            Text("ищу в базе знаний").foregroundStyle(.secondary)
+                            Text(L("ищу в базе знаний")).foregroundStyle(.secondary)
                         }
                         .font(.callout)
                     } else if inProgress {
@@ -219,7 +220,7 @@ private struct AssistantBubble: View {
                         .foregroundStyle(.orange)
                 }
                 if let latency = turn.latency {
-                    Text(latency.label)
+                    Text(latency.localizedLabel)
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.tertiary)
                 }
@@ -251,9 +252,9 @@ private struct SkippedLine: View {
 
     private var reason: String {
         switch turn.step {
-        case .skipped(.nothingHeard): "ничего не разобрал"
-        case .skipped(.tooShort): "слишком коротко"
-        default: "не вопрос"
+        case .skipped(.nothingHeard): L("ничего не разобрал")
+        case .skipped(.tooShort): L("слишком коротко")
+        default: L("не вопрос")
         }
     }
 
@@ -286,9 +287,9 @@ private struct PipelineSteps: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            item("Распознаю", 0)
-            item(step == .searching ? "Ищу в базе" : "Думаю", 1)
-            item("Отвечаю", 2)
+            item(L("Распознаю"), 0)
+            item(step == .searching ? L("Ищу в базе") : L("Думаю"), 1)
+            item(L("Отвечаю"), 2)
         }
         .font(.caption2.weight(.medium))
         .animation(.spring(duration: 0.4, bounce: 0.25), value: active)
@@ -362,9 +363,9 @@ private struct EmptyChat: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .symbolEffect(.breathe, options: .repeating)
-            Text("Слушаю звонок")
+            Text(L("Слушаю звонок"))
                 .font(.headline)
-            Text("Вопросы собеседников и ответы появятся здесь. Можно спросить и самому — текстом или голосом.")
+            Text(L("Вопросы собеседников и ответы появятся здесь. Можно спросить и самому — текстом или голосом."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -381,12 +382,12 @@ private struct StatusNotice: View {
         VStack(spacing: 10) {
             switch status {
             case .needsKey:
-                notice("key.fill", "Добавьте ключ Claude API в настройках", button: "Открыть настройки", action: openSettings)
+                notice("key.fill", L("Добавьте ключ Claude API в настройках"), button: L("Открыть настройки"), action: openSettings)
             case .needsPermission:
-                notice("lock.shield", "Нет разрешения на запись экрана. После выдачи разрешения перезапустите приложение.",
-                       button: "Открыть настройки", action: ScreenPermission.openSettings)
+                notice("lock.shield", L("Нет разрешения на запись экрана. После выдачи разрешения перезапустите приложение."),
+                       button: L("Открыть настройки"), action: ScreenPermission.openSettings)
             case .downloadingModel(let p):
-                notice("arrow.down.circle", "Загрузка модели распознавания… \(Int(p * 100))%")
+                notice("arrow.down.circle", L("Загрузка модели распознавания… %d%%", Int(p * 100)))
                 ProgressView(value: p).frame(width: 180)
             case .error(let message):
                 notice("exclamationmark.triangle", message)
@@ -438,13 +439,13 @@ private struct InputBar: View {
                 } else if model.mic == .transcribing {
                     HStack(spacing: 6) {
                         TypingDots()
-                        Text("распознаю ваш вопрос").foregroundStyle(.secondary)
+                        Text(L("распознаю ваш вопрос")).foregroundStyle(.secondary)
                     }
                     .font(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.blurReplace)
                 } else {
-                    TextField("Спросить…", text: $text, axis: .vertical)
+                    TextField(L("Спросить…"), text: $text, axis: .vertical)
                         .textFieldStyle(.plain)
                         .font(.callout)
                         .lineLimit(1...4)
@@ -463,7 +464,7 @@ private struct InputBar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSend || model.mic != .idle)
-                .help("Отправить")
+                .help(L("Отправить"))
             }
             .padding(.leading, 12)
             .padding(.trailing, 6)
@@ -507,7 +508,7 @@ private struct MicButton: View {
         }
         .buttonStyle(.plain)
         .disabled(state == .transcribing)
-        .help(state == .recording ? "Остановить и спросить" : "Спросить голосом")
+        .help(state == .recording ? L("Остановить и спросить") : L("Спросить голосом"))
     }
 }
 
@@ -528,7 +529,7 @@ private struct RecordingIndicator: View {
                 }
                 .frame(height: 20)
             }
-            Text("Говорите… нажмите ■, чтобы спросить")
+            Text(L("Говорите… нажмите ■, чтобы спросить"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

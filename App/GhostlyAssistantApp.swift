@@ -18,12 +18,12 @@ private struct MenuContent: View {
     let appDelegate: AppDelegate
 
     var body: some View {
-        Button(model.isCardVisible ? "Скрыть окно" : "Показать окно") { appDelegate.toggleCard() }
+        Button(model.isCardVisible ? L("Скрыть окно") : L("Показать окно")) { appDelegate.toggleCard() }
             .keyboardShortcut("h", modifiers: [.option, .command]) // also registered globally by HotKey
-        Button("Настройки…") { appDelegate.openSettings() }
+        Button(L("Настройки…")) { appDelegate.openSettings() }
             .keyboardShortcut(",", modifiers: .command)
         Divider()
-        Button("Выйти") { NSApp.terminate(nil) }
+        Button(L("Выйти")) { NSApp.terminate(nil) }
             .keyboardShortcut("q", modifiers: .command)
     }
 }
