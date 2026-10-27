@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await DebugCommandLine.runAsk(text) }
             return
         }
+        NSApp.appearance = model.theme.appearance
         settings = SettingsWindowController(model: model)
         let card = ChatView(model: model) { [weak self] in self?.openSettings() }
         let host = NSHostingView(rootView: card)

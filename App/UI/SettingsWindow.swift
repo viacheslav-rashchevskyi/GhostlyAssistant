@@ -3,7 +3,7 @@ import AssistantCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings in a glass window that, like the chat, is excluded from screen capture.
+/// Settings in their own window that, like the chat, is excluded from screen capture.
 @MainActor
 final class SettingsWindowController {
     private var window: NSWindow?
@@ -25,13 +25,11 @@ final class SettingsWindowController {
             w.titleVisibility = .hidden
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true
-            w.backgroundColor = .clear
+            w.backgroundColor = Theme.windowNS
             w.excludeFromCapture()
             w.isReleasedWhenClosed = false
             w.minSize = NSSize(width: 460, height: 420)
-            w.isOpaque = false
-            // Same system glass and tint as the chat; the titled window clips it to its own rounded corners.
-            w.contentView = GlassStyle.make(NSHostingView(rootView: SettingsView(model: model)), cornerRadius: 0)
+            w.contentView = NSHostingView(rootView: SettingsView(model: model))
             w.center()
             window = w
         }
@@ -68,7 +66,6 @@ struct SettingsView: View {
         .id(model.uiLanguage) // rebuild every string when the interface language changes
         .tint(Theme.accent)
         .frame(minWidth: 460, minHeight: 420)
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -132,7 +129,7 @@ private struct SettingsCard<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.raised)) // flat: one glass layer (the window) is enough
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.raised))
     }
 }
 
@@ -168,7 +165,7 @@ private struct APIKeyCard: View {
                         .foregroundStyle(.green)
                     Spacer()
                     Button(L("Заменить")) { withAnimation(.smooth) { editing = true } }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.quiet)
                 }
                 .transition(.blurReplace)
             } else {
@@ -177,14 +174,14 @@ private struct APIKeyCard: View {
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
-                        .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07)))
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.07)))
                         .onSubmit(save)
                     Button(L("Сохранить"), action: save)
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.accent)
                         .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
                     if model.hasAPIKey {
                         Button(L("Отмена")) { withAnimation(.smooth) { editing = false; key = "" } }
-                            .buttonStyle(.glass)
+                            .buttonStyle(.quiet)
                     }
                 }
                 .transition(.blurReplace)
@@ -246,7 +243,7 @@ private struct ClaudeModelCard: View {
                 } label: {
                     Label(L("Обновить"), systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
                 .disabled(model.claudeModelsLoading)
             }
@@ -317,7 +314,7 @@ private struct SelectableRow<Content: View>: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? Theme.accentSoft : Color.white.opacity(hovering ? 0.07 : 0.03))
+                    .fill(selected ? Theme.accentSoft : Color.primary.opacity(hovering ? 0.07 : 0.03))
             )
         }
         .buttonStyle(.plain)
@@ -327,7 +324,7 @@ private struct SelectableRow<Content: View>: View {
 }
 
 /// The model in use: a quiet green dot instead of another chip, since the row is already highlighted.
-/// Static on purpose: an endless animation re-renders the glass window every frame.
+/// Static on purpose: an endless animation re-renders the window every frame.
 private struct ActiveStatus: View {
     var body: some View {
         HStack(spacing: 5) {
@@ -402,7 +399,7 @@ private struct WhisperModelCard: View {
                 } label: {
                     Label(L("Открыть"), systemImage: "folder.fill")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
                 .help(L("Открыть папку с моделями в Finder"))
             }
@@ -474,7 +471,7 @@ private struct WhisperRow: View {
                 } label: {
                     Image(systemName: "trash")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
                 .disabled(selected)
                 .help(selected ? L("Модель используется — сначала выберите другую") : L("Удалить с диска"))
@@ -489,7 +486,7 @@ private struct WhisperRow: View {
                 } label: {
                     Label(L("Скачать"), systemImage: "arrow.down.circle")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
             }
             Text(info.sizeLabel)
@@ -527,7 +524,7 @@ private struct AnswerStyleCard: View {
                     .textFieldStyle(.plain)
                     .lineLimit(2...4)
                     .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07)))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.07)))
             }
         }
     }
@@ -542,7 +539,16 @@ private struct AppearanceCard: View {
 
     var body: some View {
         SettingsCard(icon: "slider.horizontal.3", title: L("Вид и запуск"),
-                     subtitle: L("Размер текста в чате и автозапуск")) {
+                     subtitle: L("Тема, размер текста и автозапуск")) {
+            HStack(spacing: 10) {
+                Text(L("Тема")).frame(maxWidth: .infinity, alignment: .leading)
+                Picker(L("Тема"), selection: $model.theme) {
+                    ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
             HStack(spacing: 10) {
                 Text(L("Размер текста")).frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(Array(sizes.enumerated()), id: \.offset) { i, item in
@@ -552,7 +558,7 @@ private struct AppearanceCard: View {
                         Text(item.0)
                             .font(.system(size: 11 + CGFloat(i) * 3, weight: .medium))
                             .frame(width: 26, height: 26)
-                            .background(RoundedRectangle(cornerRadius: 7).fill(abs(model.fontScale - item.1) < 0.01 ? Theme.accentSoft : Color.white.opacity(0.05)))
+                            .background(RoundedRectangle(cornerRadius: 7).fill(abs(model.fontScale - item.1) < 0.01 ? Theme.accentSoft : Color.primary.opacity(0.05)))
                             .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(abs(model.fontScale - item.1) < 0.01 ? Theme.accent : Color.clear, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -648,10 +654,10 @@ private struct KnowledgeCard: View {
                     ModeBadge(state: state)
                     Spacer()
                     Button(L("Перечитать")) { Task { await model.reloadKnowledge() } }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.quiet)
                         .disabled(state.isLoading)
                     Button(L("Очистить"), role: .destructive) { model.clearKnowledge() }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.quiet)
                 }
 
                 let unreadable = state.skipped.filter { name in !state.paths.contains { $0.lastPathComponent == name } }
@@ -690,7 +696,7 @@ private struct DropZone: View {
             Text(L("Перетащите файлы или папку сюда"))
                 .font(.callout)
             Button(L("Выбрать…"), action: choose)
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
         }
         .frame(maxWidth: .infinity)
@@ -698,7 +704,7 @@ private struct DropZone: View {
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                .foregroundStyle(targeted ? AnyShapeStyle(accent) : AnyShapeStyle(Color.white.opacity(0.2)))
+                .foregroundStyle(targeted ? AnyShapeStyle(accent) : AnyShapeStyle(Color.primary.opacity(0.2)))
         )
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -751,7 +757,7 @@ private struct KnowledgeRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(hovering ? 0.08 : 0.04)))
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(hovering ? 0.08 : 0.04)))
         .onHover { hovering = $0 }
         .animation(.smooth(duration: 0.15), value: hovering)
     }
@@ -783,7 +789,7 @@ private struct ModeBadge: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Capsule().fill(Color.white.opacity(0.06)))
+        .background(Capsule().fill(Color.primary.opacity(0.06)))
         .contentTransition(.numericText())
         .animation(.smooth, value: state)
     }
@@ -825,8 +831,8 @@ private struct ScreenShareCard: View {
                     Text(key)
                         .font(.system(.callout, design: .rounded).weight(.medium))
                         .frame(minWidth: 24, minHeight: 22)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.15)))
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.1)))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15)))
                 }
             }
         }

@@ -1,3 +1,4 @@
+import AppKit
 import AssistantCore
 import Foundation
 import os
@@ -75,6 +76,12 @@ final class AppModel: ObservableObject {
                 await knowledgeStore?.setStyle(style)
                 await knowledgeStore?.prewarm() // the system prefix changed, so warm it again
             }
+        }
+    }
+    @Published var theme = UserDefaults.standard.string(forKey: "appTheme").flatMap(AppTheme.init(rawValue:)) ?? .system {
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: "appTheme")
+            NSApp.appearance = theme.appearance
         }
     }
     @Published var fontScale: Double = UserDefaults.standard.object(forKey: "fontScale") as? Double ?? 1 {

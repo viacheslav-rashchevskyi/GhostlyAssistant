@@ -1,22 +1,18 @@
 import AppKit
 
 /// Floating, resizable card that stays above other windows and is excluded from screen capture where macOS allows it.
-/// Borderless, so the only visible edge is the rounded glass drawn by the SwiftUI content; edges still resize it.
+/// Borderless, so the only visible edge is the rounded card drawn by the SwiftUI content; edges still resize it.
 final class CardPanel: NSPanel {
     static let cornerRadius: CGFloat = 22
 
-    /// Wraps `contentView` in rounded system glass; the rounding clips the backdrop blur too.
     init(contentView: NSView) {
-        let glass = GlassStyle.make(contentView, cornerRadius: Self.cornerRadius)
-        // Clip everything to the rounded shape, so nothing rectangular (focus rings, key-window
-        // backgrounds) can show outside the corners.
-        for view in [glass, contentView] {
-            view.wantsLayer = true
-            view.layer?.cornerRadius = Self.cornerRadius
-            view.layer?.cornerCurve = .continuous
-            view.layer?.masksToBounds = true
-            view.focusRingType = .none
-        }
+        // Clip to the rounded shape, so nothing rectangular (focus rings, key-window backgrounds)
+        // can show outside the corners.
+        contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = Self.cornerRadius
+        contentView.layer?.cornerCurve = .continuous
+        contentView.layer?.masksToBounds = true
+        contentView.focusRingType = .none
         super.init(
             contentRect: Self.defaultFrame(),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -30,10 +26,10 @@ final class CardPanel: NSPanel {
         isMovableByWindowBackground = true
         backgroundColor = .clear
         isOpaque = false
-        hasShadow = false // the window shadow is rectangular; the glass has its own rounded edge
+        hasShadow = true // a transparent window's shadow follows the rounded content
         hidesOnDeactivate = false
         minSize = NSSize(width: 300, height: 220)
-        self.contentView = glass
+        self.contentView = contentView
         setFrameAutosaveName("AssistantChat")
     }
 

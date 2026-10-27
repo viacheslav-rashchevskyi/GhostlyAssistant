@@ -23,10 +23,9 @@ struct ChatView: View {
         .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220, maxHeight: .infinity)
         .id(model.uiLanguage) // rebuild every string when the interface language changes
         .tint(Theme.accent)
-        // The glass itself is the panel's AppKit NSGlassEffectView: SwiftUI glass at the root blurred the whole
-        // window rectangle, which showed as square corners around the rounded card.
+        .background(Theme.window)
+        .overlay(RoundedRectangle(cornerRadius: CardPanel.cornerRadius, style: .continuous).strokeBorder(Theme.hairline))
         .focusEffectDisabled()
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -94,7 +93,7 @@ private struct ListeningPill: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .foregroundStyle(active ? Theme.accent : Color.secondary)
-        .background(Capsule().fill(active ? Theme.accentSoft : Color.white.opacity(0.06)))
+        .background(Capsule().fill(active ? Theme.accentSoft : Color.primary.opacity(0.06)))
         .animation(.smooth, value: active)
     }
 }
@@ -166,7 +165,7 @@ private struct CallBubble: View {
             .font(.callout)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.08)))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.08)))
             .animation(.smooth, value: turn.question)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,7 +203,7 @@ private struct AssistantBubble: View {
         HStack(alignment: .top, spacing: 8) {
             GhostGlyph(size: 13, pulsing: inProgress)
                 .frame(width: 22, height: 22)
-                .background(Circle().fill(Color.white.opacity(0.08)))
+                .background(Circle().fill(Color.primary.opacity(0.08)))
             VStack(alignment: .leading, spacing: 6) {
                 if inProgress {
                     PipelineSteps(step: turn.step)
@@ -435,7 +434,7 @@ private struct StatusNotice: View {
             .multilineTextAlignment(.center)
         if let button, let action {
             Button(button, action: action)
-                .buttonStyle(.glass)
+                .buttonStyle(.quiet)
                 .controlSize(.small)
         }
     }
@@ -485,7 +484,7 @@ private struct InputBar: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 22))
                         .symbolRenderingMode(.palette)
-                        .foregroundStyle(canSend ? Theme.onAccent : Color.white.opacity(0.5), canSend ? Theme.accent : Color.white.opacity(0.15))
+                        .foregroundStyle(canSend ? Theme.onAccent : Color.primary.opacity(0.5), canSend ? Theme.accent : Color.primary.opacity(0.15))
                         .scaleEffect(canSend ? 1 : 0.9)
                 }
                 .buttonStyle(.plain)
@@ -495,7 +494,7 @@ private struct InputBar: View {
             .padding(.leading, 12)
             .padding(.trailing, 6)
             .padding(.vertical, 6)
-            .glassEffect(.regular, in: .capsule)
+            .background(Capsule().fill(Theme.raised))
         }
         .padding(10)
         .animation(.smooth(duration: 0.25), value: model.mic)
