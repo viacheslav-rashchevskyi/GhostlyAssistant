@@ -232,3 +232,48 @@ private extension Array where Element == CardEvent {
     #expect(claude.requests.count == 1)
     #expect(claude.requests[0].messages[0].content.last == .text("<typed_question>\nХто?\n</typed_question>"))
 }
+
+@Test func skippedUtteranceCanBeAnsweredOnDemand() async {
+    let claude = FakeClaude(scripts: [
+        .events([.textDelta(index: 0, text: "∅"), .messageStop]),
+        .events([.textDelta(index: 0, text: "Відповідь."), .messageStop])
+    ])
+    let p = makePipeline(text: "Розкажіть про вашу роботу", claude: claude)
+    await p.handle(utterance)
+    let first = await collect(p)
+    guard case .activity(let id, .transcribing) = first.first else { Issue.record("no start: \(first)"); return }
+    #expect(first.activities.last == .skipped(.notAQuestion))
+
+    await p.answer(utteranceId: id)
+    let second = await collect(p)
+    #expect(second.activities == [.thinking])
+    #expect(second.answerId == id)
+    #expect(second.deltas.joined() == "Відповідь.")
+    #expect(claude.requests[1].messages[0].content.last == .text("<typed_question>\nРозкажіть про вашу роботу\n</typed_question>"))
+}
+
+@Test func answeringTheLastSkippedUtterance() async {
+    let claude = FakeClaude(scripts: [
+        .events([.textDelta(index: 0, text: "∅"), .messageStop]),
+        .events([.textDelta(index: 0, text: "Так."), .messageStop])
+    ])
+    let p = makePipeline(text: "Розкажіть про вашу роботу", claude: claude)
+    await p.handle(utterance)
+    _ = await collect(p)
+    #expect(await p.answerLastSkipped() == true)
+    #expect(await collect(p).deltas.joined() == "Так.")
+}
+
+@Test func nothingSkippedMeansNothingToAnswer() async {
+    let p = makePipeline(text: "Розкажіть про вашу роботу", claude: FakeClaude(scripts: []))
+    #expect(await p.answerLastSkipped() == false)
+}
+
+@Test func tooShortUtteranceCanAlsoBeAnsweredOnDemand() async {
+    let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "Так."), .messageStop])])
+    let p = makePipeline(text: "А чому?", claude: claude)
+    await p.handle(utterance)
+    #expect(await collect(p).activities.last == .skipped(.tooShort))
+    #expect(await p.answerLastSkipped() == true)
+    #expect(await collect(p).deltas.joined() == "Так.")
+}

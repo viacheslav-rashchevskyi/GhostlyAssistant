@@ -62,6 +62,8 @@ public actor AssistantPipeline {
     private let now: @Sendable () -> Date
     private var transcript = TranscriptBuffer()
     private var model = ClaudeModel.haiku
+    /// Heard utterances that weren't answered, so the user can ask for an answer anyway (newest last).
+    private var skipped: [(id: UUID, text: String)] = []
 
     public init(
         transcriber: SpeechTranscribing,
@@ -95,6 +97,7 @@ public actor AssistantPipeline {
         continuation.yield(.activity(id: id, .heard(text)))
         transcript.append(text, at: u.endedAt)
         guard UtteranceFilter.shouldSend(text) else {
+            remember(id, text)
             continuation.yield(.activity(id: id, .skipped(.tooShort)))
             return
         }
@@ -109,6 +112,35 @@ public actor AssistantPipeline {
             typedByUser: false
         )
         await answer(ctx, id: id, startedAt: u.endedAt)
+    }
+
+    /// Answers a heard utterance the pipeline skipped (too short or judged "not a question"), keeping its id.
+    public func answer(utteranceId id: UUID) async {
+        guard let index = skipped.firstIndex(where: { $0.id == id }) else { return }
+        let text = skipped.remove(at: index).text
+        continuation.yield(.activity(id: id, .thinking))
+        let start = now()
+        let ctx = AnswerContext(
+            utterance: text,
+            recentTranscript: transcript.recent(now: start),
+            history: transcript.history,
+            screenshotJPEG: try? await screenshots.captureJPEG(),
+            typedByUser: true
+        )
+        await answer(ctx, id: id, startedAt: start)
+    }
+
+    /// Answers the most recent skipped utterance; false when there is none.
+    @discardableResult
+    public func answerLastSkipped() async -> Bool {
+        guard let last = skipped.last else { return false }
+        await answer(utteranceId: last.id)
+        return true
+    }
+
+    private func remember(_ id: UUID, _ text: String) {
+        skipped.append((id, text))
+        if skipped.count > 20 { skipped.removeFirst(skipped.count - 20) }
     }
 
     public func ask(_ typed: String) async {
@@ -167,6 +199,7 @@ public actor AssistantPipeline {
                         switch gate.feed(t) {
                         case .suppressed:
                             Self.log.info("skipped: not a question")
+                            if !ctx.typedByUser { remember(id, ctx.utterance) }
                             continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
                             return
                         case .undecided:
@@ -212,6 +245,7 @@ public actor AssistantPipeline {
                 start()
                 continuation.yield(.answerFailed(id: id, message: "Модель отказалась отвечать."))
             } else {
+                if !ctx.typedByUser { remember(id, ctx.utterance) }
                 continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
             }
             return
