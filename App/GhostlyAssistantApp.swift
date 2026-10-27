@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let host = NSHostingView(rootView: card)
         host.sizingOptions = [.minSize] // the user sizes the card; content fills it
         let panel = CardPanel(contentView: host)
+        panel.ensureOnScreen()
         panel.orderFrontRegardless()
         self.panel = panel
         hotKey = HotKey.toggleCard { [weak self] in self?.toggleCard() }
@@ -43,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible {
             panel.orderOut(nil)
         } else {
+            panel.ensureOnScreen()
             panel.orderFrontRegardless()
         }
         model.isCardVisible = panel.isVisible

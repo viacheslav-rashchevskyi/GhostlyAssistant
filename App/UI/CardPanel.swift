@@ -35,6 +35,12 @@ final class CardPanel: NSPanel {
         frameRect
     }
 
+    /// Brings the card back to the default corner if it was dragged entirely off every display.
+    func ensureOnScreen() {
+        let visible = NSScreen.screens.contains { $0.frame.intersection(frame).width >= 40 && $0.frame.intersection(frame).height >= 40 }
+        if !visible { setFrame(Self.defaultFrame(), display: true) }
+    }
+
     private static func defaultFrame() -> NSRect {
         let size = NSSize(width: 360, height: 260)
         guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
