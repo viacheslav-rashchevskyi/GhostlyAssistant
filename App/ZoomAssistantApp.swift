@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: CardPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let path = DebugCommandLine.transcribePath {
+            Task { await DebugCommandLine.runTranscribe(path) }
+            return
+        }
         let host = NSHostingView(rootView: Text("Очікую звук").padding())
         let panel = CardPanel(contentView: host)
         panel.orderFrontRegardless()
