@@ -1,0 +1,32 @@
+name: ZoomAssistant
+options:
+  bundleIdPrefix: local.zoomassistant
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  AssistantCore:
+    path: Packages/AssistantCore
+  ArgmaxOSS:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    from: 1.1.1
+targets:
+  ZoomAssistant:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: AssistantCore
+      - package: ArgmaxOSS
+        product: WhisperKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.zoomassistant.app
+        PRODUCT_NAME: ZoomAssistant
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/ZoomAssistant.entitlements
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        SWIFT_VERSION: "6"
+        GENERATE_INFOPLIST_FILE: NO
