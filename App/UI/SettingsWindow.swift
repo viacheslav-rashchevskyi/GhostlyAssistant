@@ -17,7 +17,7 @@ final class SettingsWindowController {
         if window == nil {
             let w = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 520, height: 660),
-                styleMask: [.titled, .closable, .fullSizeContentView, .resizable],
+                styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView, .resizable],
                 backing: .buffered,
                 defer: false
             )
@@ -80,14 +80,10 @@ private struct SettingsHeader: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image("GhostGlyph")
-                .renderingMode(.template)
+            Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 30, height: 30)
-                .foregroundStyle(accent)
-                .frame(width: 52, height: 52)
-                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                .frame(width: 56, height: 56)
             VStack(alignment: .leading, spacing: 3) {
                 Text("GhostlyAssistant")
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
