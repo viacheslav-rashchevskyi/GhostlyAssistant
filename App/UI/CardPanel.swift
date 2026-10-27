@@ -13,13 +13,13 @@ final class CardPanel: NSPanel {
         isFloatingPanel = true
         level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        sharingType = .none
+        excludeFromCapture()
         isMovableByWindowBackground = true
         backgroundColor = .clear
         isOpaque = false
-        hasShadow = true
+        hasShadow = false // the SwiftUI glass draws its own rounded shadow
         hidesOnDeactivate = false
-        minSize = NSSize(width: 300, height: 220)
+        minSize = NSSize(width: 328, height: 248)
         self.contentView = contentView
         setFrameAutosaveName("AssistantChat")
     }
@@ -38,11 +38,11 @@ final class CardPanel: NSPanel {
     }
 
     private static func defaultFrame() -> NSRect {
-        let size = NSSize(width: 340, height: 600)
+        let size = NSSize(width: 368, height: 628)
         guard let visible = NSScreen.main?.visibleFrame else { return NSRect(origin: .zero, size: size) }
         return NSRect(
-            x: visible.maxX - size.width - 16,
-            y: visible.maxY - size.height - 16,
+            x: visible.maxX - size.width - 2,
+            y: visible.maxY - size.height - 2,
             width: size.width,
             height: size.height
         )

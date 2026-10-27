@@ -3,6 +3,8 @@ import SwiftUI
 
 /// The floating chat: what the call said, what the assistant answered, and an input bar for the user's own questions.
 struct ChatView: View {
+    static let windowMargin: CGFloat = 14
+
     @ObservedObject var model: AppModel
     let openSettings: () -> Void
 
@@ -22,6 +24,10 @@ struct ChatView: View {
         }
         .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220, maxHeight: .infinity)
         .glassEffect(.regular.tint(.black.opacity(0.3)), in: .rect(cornerRadius: 22))
+        .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+        // Transparent margin inside the borderless window: the glass shadow fits instead of being cut
+        // into straight edges, and the margin doubles as the resize grab area.
+        .padding(Self.windowMargin)
         .environment(\.colorScheme, .dark)
     }
 }

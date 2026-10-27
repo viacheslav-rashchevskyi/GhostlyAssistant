@@ -26,7 +26,7 @@ final class SettingsWindowController {
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true
             w.backgroundColor = .clear
-            w.sharingType = .none
+            w.excludeFromCapture()
             w.isReleasedWhenClosed = false
             w.minSize = NSSize(width: 460, height: 420)
             w.contentView = NSHostingView(rootView: SettingsView(model: model))
@@ -53,7 +53,7 @@ struct SettingsView: View {
                 ScreenShareCard()
             }
             .padding(.horizontal, 22)
-            .padding(.top, 34)
+            .padding(.top, 48) // clears the window buttons
             .padding(.bottom, 22)
         }
         .scrollIndicators(.never)

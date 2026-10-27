@@ -54,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.panel = panel
         hotKey = HotKey.toggleCard { [weak self] in self?.toggleCard() }
         Task { await model.start() }
+        // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
+        if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
     }
 
     func toggleCard() {
