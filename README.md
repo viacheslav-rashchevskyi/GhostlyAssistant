@@ -66,9 +66,35 @@ the knowledge base and search. The `App/` target holds only what is tied to the 
 
 Answers go through the Claude Messages API over plain HTTP with SSE parsing — there is no official Swift SDK.
 
+## Requirements
+
+| | Minimum |
+|---|---|
+| Mac | **Apple Silicon (M1 or newer).** Intel Macs are not supported: the app is built for arm64 only, and Whisper runs on the Neural Engine. |
+| macOS | **26 or later.** |
+| Disk space | ~7 MB for the app plus the speech model: **~630 MB** for the default one, from 77 MB to 3.1 GB depending on the model you pick. |
+| Internet | Needed for answers (the model provider's API) and to download the speech model once. Speech recognition itself works offline. |
+| Model provider | Your own **Claude API key**. |
+| Permissions | **Screen & System Audio Recording** (call audio and the screenshot) and **Microphone** (only for asking by voice). |
+
+**Which Whisper model fits your Mac** — according to [argmax's support table](https://huggingface.co/argmaxinc/whisperkit-coreml/blob/main/config.json):
+
+| Model | Size | M1 | M2 / M3 / M4 and newer |
+|---|---|---|---|
+| Large v3 Turbo, compressed — **default** | 627 MB | ✅ | ✅ |
+| Large v3, compressed | 948 MB | ✅ | ✅ |
+| Large v3 Turbo | 1.6 GB | — | ✅ |
+| Large v3 | 3.1 GB | ✅ | ✅ |
+| Small | 486 MB | ✅ | ✅ |
+| Base | 147 MB | ✅ | ✅ |
+| Tiny | 77 MB | ✅ | ✅ |
+| Small, compressed · Medium | 217 MB · 1.5 GB | not in argmax's table — may work, untested | |
+
+The default model is the one argmax recommends for multilingual accuracy, and it runs on every supported Mac.
+
 ## Install
 
-You need an Apple Silicon Mac on macOS 26+ and your own Claude API key.
+See [Requirements](#requirements) first.
 
 1. Download `GhostlyAssistant-<version>.dmg` from [Releases](../../releases) and drag the app into Applications.
 2. The build is signed with a developer certificate but not notarized, so on first launch macOS says it can't verify
