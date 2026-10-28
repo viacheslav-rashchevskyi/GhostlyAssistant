@@ -32,8 +32,8 @@ GhostlyAssistant is vendor-agnostic: answers come from the language model you ch
 | Provider | Status |
 |---|---|
 | Anthropic Claude | ✅ supported |
-| OpenAI | 🚧 in progress (OpenAI-compatible API) |
-| Google Gemini | 🚧 in progress (OpenAI-compatible endpoint) |
+| OpenAI | 🚧 in progress |
+| Google Gemini | 🚧 in progress |
 | Local models — Ollama, LM Studio, vLLM | 🚧 in progress (OpenAI-compatible API) |
 
 ## Screenshots
