@@ -32,8 +32,8 @@ GhostlyAssistant — vendor-agnostic: ответы строит выбранна
 | Провайдер | Статус |
 |---|---|
 | Anthropic Claude | ✅ поддерживается |
-| OpenAI | 🚧 в работе (OpenAI-совместимый API) |
-| Google Gemini | 🚧 в работе (OpenAI-совместимый эндпоинт) |
+| OpenAI | 🚧 в работе |
+| Google Gemini | 🚧 в работе |
 | Локальные модели — Ollama, LM Studio, vLLM | 🚧 в работе (OpenAI-совместимый API) |
 
 ## Как выглядит
