@@ -96,6 +96,8 @@ open build/Build/Products/Release/GhostlyAssistant.app
 Приложение подписывается сертификатом Apple Development — укажите свою команду в `project.yml`
 (`DEVELOPMENT_TEAM`), иначе разрешение на запись экрана будет слетать после каждой пересборки.
 
+Установочный DMG (нужен `pip install dmgbuild`): `scripts/make-dmg.sh` → `build/release/GhostlyAssistant-<версия>.dmg`.
+
 Тесты ядра:
 
 ```bash

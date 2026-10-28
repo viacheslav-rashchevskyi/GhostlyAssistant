@@ -96,6 +96,8 @@ open build/Build/Products/Release/GhostlyAssistant.app
 The app is signed with an Apple Development certificate — set your own team in `project.yml`
 (`DEVELOPMENT_TEAM`), otherwise the screen recording permission is lost after every rebuild.
 
+Installer DMG (needs `pip install dmgbuild`): `scripts/make-dmg.sh` → `build/release/GhostlyAssistant-<version>.dmg`.
+
 Core tests:
 
 ```bash

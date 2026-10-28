@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 660px; height: 400px; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(440px 260px at 50% 47%, rgba(47,95,208,.07), transparent 70%),
+      linear-gradient(180deg, #FBFBFD 0%, #F3F4F7 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    position: relative;
+  }
+  /* Finder draws the icons at x=170 and x=490, y=190 (icon centres). */
+  .arrow { position: absolute; left: 262px; top: 166px; width: 136px; height: 48px; }
+  .caption {
+    position: absolute; left: 0; right: 0; top: 318px; text-align: center;
+    color: rgba(28,32,44,.55); font-size: 13px; letter-spacing: .2px;
+  }
+  .caption b { color: #2F5FD0; font-weight: 600; }
+</style>
+</head>
+<body>
+  <svg class="arrow" viewBox="0 0 136 48" fill="none">
+    <path d="M6 24 H116" stroke="#2F5FD0" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9" opacity=".55"/>
+    <path d="M106 12 L124 24 L106 36" stroke="#2F5FD0" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div class="caption">Drag <b>GhostlyAssistant</b> to <b>Applications</b> to install</div>
+</body>
+</html>
