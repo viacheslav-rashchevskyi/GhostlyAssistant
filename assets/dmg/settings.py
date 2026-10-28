@@ -27,4 +27,3 @@ show_sidebar = False
 icon_size = 112
 text_size = 13
 arrange_by = None
-hide_extensions = [os.path.basename(app)]
