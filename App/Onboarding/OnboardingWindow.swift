@@ -453,7 +453,12 @@ private struct SpeechStep: View {
 
     private var current: WhisperModelInfo? { WhisperCatalog.models.first { $0.variant == model.whisperVariant } }
     private var progress: Double? { model.whisperDownloads[model.whisperLoading ?? model.whisperVariant] }
-    private var choices: [WhisperModelInfo] { WhisperCatalog.top.compactMap { v in WhisperCatalog.models.first { $0.variant == v } } }
+
+    /// "Large v3 Turbo, сжатая — 627 МБ · Быстро и точно", with the recommended one marked.
+    private func menuTitle(_ info: WhisperModelInfo) -> String {
+        let base = "\(info.title) — \(info.sizeLabel) · \(info.note)"
+        return info.variant == WhisperCatalog.recommended ? base + " · " + L("рекомендуется") : base
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -468,8 +473,8 @@ private struct SpeechStep: View {
                     }
                     Spacer()
                     Menu(L("Другая модель")) {
-                        ForEach(choices) { info in
-                            Button("\(info.title) — \(info.sizeLabel)") { model.selectWhisper(info.variant) }
+                        ForEach(WhisperCatalog.models) { info in
+                            Button(menuTitle(info)) { model.selectWhisper(info.variant) }
                                 .disabled(info.variant == model.whisperVariant)
                         }
                     }
