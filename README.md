@@ -106,10 +106,18 @@ swift test --package-path Packages/AssistantCore
 
 ## First launch
 
-1. 👻 in the menu bar → **Settings…**
-2. Paste your **Claude API** key (stored only in the macOS Keychain).
-3. Grant **Screen & System Audio Recording** permission and restart the app.
-4. On first launch the speech model downloads (~600 MB, compressed Large v3 Turbo by default).
+On first launch a setup guide walks you through everything; the chat appears when it's done.
+
+![Setup guide](docs/images/onboarding.png)
+
+1. **Welcome** — interface language and theme; the speech model (~600 MB) starts downloading in the background.
+2. **Claude API key** — checked right away and stored only in the macOS Keychain. You can skip it and add it later.
+3. **Screen & System Audio Recording** — the guide opens the right System Settings pane and restarts the app for you.
+4. **Languages** — of the other people on the call and of your own voice.
+5. **Speech model** — waits for the download; you can pick another model.
+6. **How to use** — hotkeys, the microphone, an optional knowledge base and a test question.
+
+To run it again: menu bar icon → **Setup guide…**
 
 ## Debugging
 

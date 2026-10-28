@@ -150,16 +150,28 @@ final class AppModel: ObservableObject {
 
 
     var hasAPIKey: Bool { !(keychain.read(Self.apiKeyAccount) ?? "").isEmpty }
+    /// Published twin of `hasAPIKey`, so views update when a key is saved.
+    @Published private(set) var apiKeySaved = false
+    /// True while the first-run guide hasn't reached its permission step, which asks for access itself.
+    var holdsPermissionPrompt: () -> Bool = { false }
+
+    enum KeyCheck: Equatable {
+        case valid(models: Int)
+        case invalid
+        /// The API couldn't be reached; the key is saved and checked again on the next start.
+        case unverified
+    }
     var latestLatency: Latency? { turns.last { $0.latency != nil }?.latency }
 
     func start() async {
         migrateKeyFromOldName()
+        apiKeySaved = hasAPIKey
         guard let key = keychain.read(Self.apiKeyAccount), !key.isEmpty else {
             status = .needsKey
             return
         }
         guard await ScreenPermission.check() else {
-            ScreenPermission.request()
+            if !holdsPermissionPrompt() { ScreenPermission.request() }
             status = .needsPermission
             return
         }
@@ -210,7 +222,24 @@ final class AppModel: ObservableObject {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         try? keychain.write(trimmed, account: Self.apiKeyAccount)
+        apiKeySaved = true
         Task { await start() }
+    }
+
+    /// Checks a key against the Models API before saving it; a rejected key is not saved.
+    func checkAndSaveAPIKey(_ key: String) async -> KeyCheck {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .invalid }
+        do {
+            let models = try await ClaudeClient(apiKey: trimmed).listModels()
+            saveAPIKey(trimmed)
+            return .valid(models: models.count)
+        } catch ClaudeError.http(let status, _) where status == 401 || status == 403 {
+            return .invalid
+        } catch {
+            saveAPIKey(trimmed)
+            return .unverified
+        }
     }
 
     func ask(_ text: String) {

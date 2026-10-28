@@ -22,6 +22,7 @@ private struct MenuContent: View {
             .keyboardShortcut("h", modifiers: [.option, .command]) // also registered globally by HotKey
         Button(L("Настройки…")) { appDelegate.openSettings() }
             .keyboardShortcut(",", modifiers: .command)
+        Button(L("Мастер настройки…")) { appDelegate.openOnboarding(again: true) }
         Divider()
         Button(L("Выйти")) { NSApp.terminate(nil) }
             .keyboardShortcut("q", modifiers: .command)
@@ -33,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private var panel: CardPanel?
     private var settings: SettingsWindowController?
+    private let onboarding = Onboarding()
+    private var guide: OnboardingWindowController?
     private var hotKeys: [HotKey] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -51,12 +54,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         host.sizingOptions = [.minSize] // the user sizes the card; content fills it
         let panel = CardPanel(contentView: host)
         panel.ensureOnScreen()
-        panel.orderFrontRegardless()
         self.panel = panel
         hotKeys = [
             HotKey.toggleCard { [weak self] in self?.toggleCard() },
             HotKey.answerLast { [weak self] in self?.model.answerLastSkipped() }
         ]
+        let onboarding = onboarding
+        model.holdsPermissionPrompt = { onboarding.holdsPermissionPrompt }
+        guide = OnboardingWindowController(model: model, onboarding: onboarding) { [weak self] in self?.showCard() }
+        // Development aid: GHOSTLY_ONBOARDING=<step 0…5> opens the guide on that step (pair with GHOSTLY_CAPTURABLE=1).
+        if let raw = ProcessInfo.processInfo.environment["GHOSTLY_ONBOARDING"], let step = Int(raw).flatMap(OnboardingStep.init(rawValue:)) {
+            onboarding.restart()
+            onboarding.step = step
+            guide?.show()
+        } else if onboarding.shouldShowAtLaunch(hasKey: model.hasAPIKey) {
+            guide?.show()
+        }
+        if guide?.isOpen == true {
+            model.isCardVisible = false
+        } else {
+            panel.orderFrontRegardless()
+        }
         Task { await model.start() }
         // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
         if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
@@ -79,5 +97,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func openSettings() {
         settings?.show()
+    }
+
+    func openOnboarding(again: Bool) {
+        if again { onboarding.restart() }
+        if panel?.isVisible == true { toggleCard() } // the chat comes back when the guide closes
+        guide?.show()
+    }
+
+    func showCard() {
+        guard let panel, !panel.isVisible else { return }
+        toggleCard()
     }
 }

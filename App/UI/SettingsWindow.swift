@@ -768,7 +768,7 @@ private struct SpeechCard: View {
     }
 }
 
-private struct LanguageRow: View {
+struct LanguageRow: View {
     let icon: String
     let title: String
     let hint: String
