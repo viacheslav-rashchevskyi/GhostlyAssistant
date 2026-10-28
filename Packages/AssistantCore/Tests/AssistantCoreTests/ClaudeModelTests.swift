@@ -106,19 +106,6 @@ private func json(_ id: String) throws -> [String: Any] {
     #expect(j["fallbacks"] == nil)
 }
 
-@Test func knownPrices() {
-    #expect(ClaudeModel(id: "claude-haiku-5-5").price == ClaudePrice(input: 0.10, output: 0.50, cacheRead: 0.01, cacheWrite: 0.20))
-    #expect(ClaudeModel(id: "claude-opus-5-5").price == ClaudePrice(input: 4, output: 20, cacheRead: 0.20, cacheWrite: 8))
-    #expect(ClaudeModel(id: "claude-fable-5-1").price == ClaudePrice(input: 10, output: 50, cacheRead: 0.25, cacheWrite: 20))
-    #expect(ClaudeModel(id: "claude-sonnet-4-6").price == ClaudePrice(input: 3, output: 15, cacheRead: 0.30, cacheWrite: 6))
-    #expect(ClaudeModel(id: "claude-3-7-sonnet-20250219").price == nil)
-}
-
-@Test func priceLabelUsesCommaDecimals() {
-    #expect(ClaudePrice(input: 0.10, output: 0.50).label == "$0,10 / $0,50")
-    #expect(ClaudePrice(input: 4, output: 20).label == "$4 / $20")
-}
-
 @Test func listModelsParsesAPIResponse() async throws {
     let body = #"{"data":[{"type":"model","id":"claude-opus-5-5","display_name":"Claude Opus 5.5","created_at":"2026-09-01T00:00:00Z"},{"type":"model","id":"claude-haiku-5-5","display_name":"Claude Haiku 5.5","created_at":"2026-08-01T00:00:00Z"}],"has_more":false}"#
     let t = MockTransport(status: 200, body: body)

@@ -45,8 +45,6 @@ public enum CardEvent: Equatable, Sendable {
     case answerDelta(id: UUID, text: String)
     case kbLookup(id: UUID)
     case answerFinished(id: UUID, latency: Latency)
-    /// Tokens spent on one utterance, sent on every outcome (answered, skipped as ∅, failed).
-    case usage(id: UUID, TokenUsage)
     case answerFailed(id: UUID, message: String)
 }
 
@@ -183,11 +181,7 @@ public actor AssistantPipeline {
         var started = false
         var fullText = ""
         var firstTextAt: Date?
-        var outputTokens = 0
-        var usage = TokenUsage()
-        defer { if usage != TokenUsage() { continuation.yield(.usage(id: id, usage)) } }
         var stopReason: String?
-        var suppressed = false
 
         func start() {
             guard !started else { return }
@@ -211,8 +205,10 @@ public actor AssistantPipeline {
                         roundText += t
                         switch gate.feed(t) {
                         case .suppressed:
-                            // Keep reading: the rest of a ∅ reply is a few tokens, and its final usage is still billed.
-                            suppressed = true
+                            Self.log.info("skipped: not a question")
+                            if !ctx.typedByUser { remember(id, ctx.utterance) }
+                            continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
+                            return
                         case .undecided:
                             break
                         case .emit(let s):
@@ -233,21 +229,11 @@ public actor AssistantPipeline {
                         if case .thinking(let so, let sig)? = blocks[index] { blocks[index] = .thinking(text: so, signature: sig + part) }
                     case .redactedThinking(let index, let data):
                         blocks[index] = .redacted(data)
-                    case .messageStart(let input, let cacheRead, let cacheCreation):
-                        usage.add(TokenUsage(inputTokens: input, cacheReadTokens: cacheRead, cacheCreationTokens: cacheCreation))
-                    case .messageDelta(let reason, let tokens):
+                    case .messageDelta(let reason):
                         stopReason = reason
-                        outputTokens += tokens
-                        usage.outputTokens += tokens
                     default:
                         break
                     }
-                }
-                if suppressed {
-                    Self.log.info("skipped: not a question")
-                    if !ctx.typedByUser { remember(id, ctx.utterance) }
-                    continuation.yield(.activity(id: id, .skipped(.notAQuestion)))
-                    return
                 }
                 let hasTools = blocks.values.contains { if case .tool = $0 { true } else { false } }
                 guard stopReason == "tool_use", hasTools, round < Self.maxToolRounds else { break }
@@ -288,13 +274,8 @@ public actor AssistantPipeline {
             }
             return
         }
-        let finishedAt = now()
-        let generation = finishedAt.timeIntervalSince(firstTextAt)
-        let latency = Latency(
-            timeToFirstToken: firstTextAt.timeIntervalSince(startedAt),
-            tokensPerSecond: generation > 0.05 && outputTokens > 0 ? Double(outputTokens) / generation : nil
-        )
-        Self.log.info("answer first text \(latency.timeToFirstToken, format: .fixed(precision: 2))s \(latency.label, privacy: .public)")
+        let latency = Latency(timeToFirstToken: firstTextAt.timeIntervalSince(startedAt))
+        Self.log.info("answer first text \(latency.timeToFirstToken, format: .fixed(precision: 2))s")
         transcript.addAnswer(QAPair(question: ctx.utterance, answer: fullText))
         continuation.yield(.answerFinished(id: id, latency: latency))
     }

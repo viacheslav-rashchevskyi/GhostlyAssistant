@@ -2,19 +2,15 @@ import Foundation
 
 public struct Latency: Equatable, Sendable {
     public let timeToFirstToken: TimeInterval
-    public let tokensPerSecond: Double?
 
-    public init(timeToFirstToken: TimeInterval, tokensPerSecond: Double?) {
+    public init(timeToFirstToken: TimeInterval) {
         self.timeToFirstToken = timeToFirstToken
-        self.tokensPerSecond = tokensPerSecond
     }
 
-    /// For example "0,8 с · 140 ток/с".
+    /// For example "0,8 с".
     public var label: String {
         let seconds = (timeToFirstToken * 10).rounded() / 10
-        let ttft = String(format: "%.1f", seconds).replacingOccurrences(of: ".", with: ",") + " с"
-        guard let tps = tokensPerSecond else { return ttft }
-        return "\(ttft) · \(Int(tps.rounded())) ток/с"
+        return String(format: "%.1f", seconds).replacingOccurrences(of: ".", with: ",") + " с"
     }
 }
 

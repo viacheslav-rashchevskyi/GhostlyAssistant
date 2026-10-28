@@ -1,7 +1,7 @@
 import Foundation
 
 public enum SSEEvent: Equatable, Sendable {
-    case messageStart(inputTokens: Int, cacheReadTokens: Int, cacheCreationTokens: Int = 0)
+    case messageStart
     case textDelta(index: Int, text: String)
     case toolUseStart(index: Int, id: String, name: String)
     case inputJSONDelta(index: Int, partialJSON: String)
@@ -10,7 +10,7 @@ public enum SSEEvent: Equatable, Sendable {
     case signatureDelta(index: Int, signature: String)
     case redactedThinking(index: Int, data: String)
     case blockStop(index: Int)
-    case messageDelta(stopReason: String?, outputTokens: Int)
+    case messageDelta(stopReason: String?)
     case messageStop
     case ping
     case error(type: String, message: String)
@@ -24,9 +24,7 @@ public enum SSEParser {
         let e = try JSONDecoder().decode(Wire.self, from: Data(json.utf8))
         switch e.type {
         case "message_start":
-            let u = e.message?.usage
-            return .messageStart(inputTokens: u?.inputTokens ?? 0, cacheReadTokens: u?.cacheReadInputTokens ?? 0,
-                                 cacheCreationTokens: u?.cacheCreationInputTokens ?? 0)
+            return .messageStart
         case "content_block_start":
             guard let b = e.contentBlock else { return nil }
             switch b.type {
@@ -46,7 +44,7 @@ public enum SSEParser {
         case "content_block_stop":
             return .blockStop(index: e.index ?? 0)
         case "message_delta":
-            return .messageDelta(stopReason: e.delta?.stopReason, outputTokens: e.usage?.outputTokens ?? 0)
+            return .messageDelta(stopReason: e.delta?.stopReason)
         case "message_stop":
             return .messageStop
         case "ping":
@@ -59,19 +57,6 @@ public enum SSEParser {
     }
 
     private struct Wire: Decodable {
-        struct Usage: Decodable {
-            var inputTokens: Int?
-            var outputTokens: Int?
-            var cacheReadInputTokens: Int?
-            var cacheCreationInputTokens: Int?
-            enum CodingKeys: String, CodingKey {
-                case inputTokens = "input_tokens"
-                case outputTokens = "output_tokens"
-                case cacheReadInputTokens = "cache_read_input_tokens"
-                case cacheCreationInputTokens = "cache_creation_input_tokens"
-            }
-        }
-        struct MessageInfo: Decodable { var usage: Usage? }
         struct Block: Decodable { var type: String; var id: String?; var name: String?; var data: String? }
         struct Delta: Decodable {
             var type: String?
@@ -90,14 +75,12 @@ public enum SSEParser {
 
         var type: String
         var index: Int?
-        var message: MessageInfo?
         var contentBlock: Block?
         var delta: Delta?
-        var usage: Usage?
         var error: ErrorInfo?
 
         enum CodingKeys: String, CodingKey {
-            case type, index, message, delta, usage, error
+            case type, index, delta, error
             case contentBlock = "content_block"
         }
     }

@@ -1,28 +1,5 @@
 import Foundation
 
-/// Price per million tokens: base input, output, cache hits and 1-hour cache writes (nil when unknown).
-public struct ClaudePrice: Equatable, Sendable {
-    public let input: Double
-    public let output: Double
-    public let cacheRead: Double?
-    public let cacheWrite: Double?
-
-    public init(input: Double, output: Double, cacheRead: Double? = nil, cacheWrite: Double? = nil) {
-        self.input = input
-        self.output = output
-        self.cacheRead = cacheRead
-        self.cacheWrite = cacheWrite
-    }
-
-    /// For example "$0,10 / $0,50" or "$4 / $20".
-    public var label: String { "\(Self.dollars(input)) / \(Self.dollars(output))" }
-
-    private static func dollars(_ value: Double) -> String {
-        let text = value == value.rounded() ? String(Int(value)) : String(format: "%.2f", value)
-        return "$" + text.replacingOccurrences(of: ".", with: ",")
-    }
-}
-
 /// Any Claude model by API id, with the request settings it needs for a fast reply.
 public struct ClaudeModel: Hashable, Sendable, Identifiable {
     public let id: String
@@ -63,11 +40,6 @@ public struct ClaudeModel: Hashable, Sendable, Identifiable {
         Self.fallbackModels.contains(id) ? "default" : nil
     }
 
-    /// Anthropic first-party rates; nil for models not in the table.
-    public var price: ClaudePrice? {
-        Self.prices[id]
-    }
-
     static let fallbackBeta = "server-side-fallback-2026-07-01"
 
     private static let effortModels: Set<String> = [
@@ -78,22 +50,6 @@ public struct ClaudeModel: Hashable, Sendable, Identifiable {
 
     private static let fallbackModels: Set<String> = ["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]
 
-    /// Base, output, cache-hit and 1-hour cache-write prices from Anthropic's pricing page.
-    private static let prices: [String: ClaudePrice] = [
-        "claude-fable-5-1": ClaudePrice(input: 10, output: 50, cacheRead: 0.25, cacheWrite: 20),
-        "claude-fable-5": ClaudePrice(input: 10, output: 50, cacheRead: 1, cacheWrite: 20),
-        "claude-mythos-5-1": ClaudePrice(input: 10, output: 50, cacheRead: 0.25, cacheWrite: 20),
-        "claude-opus-5-5": ClaudePrice(input: 4, output: 20, cacheRead: 0.2, cacheWrite: 8),
-        "claude-opus-5": ClaudePrice(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 10),
-        "claude-opus-4-8": ClaudePrice(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 10),
-        "claude-opus-4-7": ClaudePrice(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 10),
-        "claude-opus-4-6": ClaudePrice(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 10),
-        "claude-sonnet-5-5": ClaudePrice(input: 2, output: 10, cacheRead: 0.1, cacheWrite: 4),
-        "claude-sonnet-5": ClaudePrice(input: 2, output: 10, cacheRead: 0.2, cacheWrite: 4),
-        "claude-sonnet-4-6": ClaudePrice(input: 3, output: 15, cacheRead: 0.3, cacheWrite: 6),
-        "claude-haiku-5-5": ClaudePrice(input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.2),
-        "claude-haiku-4-5": ClaudePrice(input: 1, output: 5, cacheRead: 0.1, cacheWrite: 2)
-    ]
 }
 
 /// One entry of `GET /v1/models`.

@@ -41,15 +41,6 @@ private struct ChatHeader: View {
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
             ListeningPill(active: model.audioPresent)
             Spacer()
-            if model.sessionCost.usd > 0 {
-                Text(model.sessionCost.label)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.numericText())
-                    .help(L("Потрачено за сессию: %d вход · %d из кэша · %d в кэш · %d выход токенов", model.sessionUsage.inputTokens, model.sessionUsage.cacheReadTokens, model.sessionUsage.cacheCreationTokens, model.sessionUsage.outputTokens))
-            }
             if let latency = model.latestLatency {
                 Label(latency.localizedLabel, systemImage: "bolt.fill")
                     .labelStyle(.titleAndIcon)

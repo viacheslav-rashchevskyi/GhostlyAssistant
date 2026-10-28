@@ -16,8 +16,8 @@ import Testing
 }
 
 @Test func parsesMessageDeltaAndStart() throws {
-    #expect(try SSEParser.parse(line: #"data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":12}}"#) == .messageDelta(stopReason: "end_turn", outputTokens: 12))
-    #expect(try SSEParser.parse(line: #"data: {"type":"message_start","message":{"usage":{"input_tokens":5,"cache_read_input_tokens":3}}}"#) == .messageStart(inputTokens: 5, cacheReadTokens: 3))
+    #expect(try SSEParser.parse(line: #"data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":12}}"#) == .messageDelta(stopReason: "end_turn"))
+    #expect(try SSEParser.parse(line: #"data: {"type":"message_start","message":{"usage":{"input_tokens":5,"cache_read_input_tokens":3}}}"#) == .messageStart)
 }
 
 @Test func parsesStopAndPing() throws {

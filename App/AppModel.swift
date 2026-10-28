@@ -33,7 +33,6 @@ enum CardStatus: Equatable {
 struct KnowledgeState: Equatable {
     var paths: [URL] = []
     var mode: KBMode = .none
-    var tokens = 0
     var skipped: [String] = []
     var isLoading = false
 }
@@ -64,8 +63,6 @@ final class AppModel: ObservableObject {
         }
     }
     @Published private(set) var knowledge = KnowledgeState()
-    @Published private(set) var sessionUsage = TokenUsage()
-    @Published private(set) var sessionCost = SessionCost(usd: 0)
     @Published var answerStyle = AppModel.storedStyle() {
         didSet {
             UserDefaults.standard.set(answerStyle.length.rawValue, forKey: "answerLength")
@@ -115,8 +112,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var claudeModels: [ClaudeModelInfo] = ClaudeCatalogFallback.models
     @Published private(set) var claudeModelsLoading = false
     @Published private(set) var claudeModelsFromAPI = false
-    /// Display name → price from Anthropic's pricing page; empty until fetched.
-    @Published private(set) var claudePrices: [String: ClaudePrice] = [:]
     @Published private(set) var whisperVariant = UserDefaults.standard.string(forKey: "whisperModel") ?? WhisperCatalog.recommended
     @Published private(set) var installedWhisper: Set<String> = []
     @Published private(set) var whisperDownloads: [String: Double] = [:]
@@ -209,22 +204,15 @@ final class AppModel: ObservableObject {
 
     // MARK: Claude models
 
-    /// Models from the API for this key and prices from the pricing page, fetched together.
+    /// Models available to this key from the Models API.
     func refreshClaudeModels() async {
         claudeModelsLoading = true
-        async let prices = try? PricingPage.fetch()
         if let key = keychain.read(Self.apiKeyAccount), !key.isEmpty,
            let models = try? await ClaudeClient(apiKey: key).listModels(), !models.isEmpty {
             claudeModels = models.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
             claudeModelsFromAPI = true
         }
-        if let fetched = await prices, !fetched.isEmpty { claudePrices = fetched }
         claudeModelsLoading = false
-    }
-
-    /// Live price when the pricing page lists the model, otherwise the built-in table.
-    func price(for info: ClaudeModelInfo) -> ClaudePrice? {
-        claudePrices[info.displayName] ?? info.model.price
     }
 
     // MARK: Whisper models
@@ -346,7 +334,7 @@ final class AppModel: ObservableObject {
         guard let store = knowledgeStore else { return }
         knowledge.isLoading = true
         let result = await store.configure(paths)
-        knowledge = KnowledgeState(paths: paths, mode: result.mode, tokens: result.tokens, skipped: result.skipped)
+        knowledge = KnowledgeState(paths: paths, mode: result.mode, skipped: result.skipped)
         await store.prewarm()
     }
 
@@ -376,11 +364,6 @@ final class AppModel: ObservableObject {
     func answerLastSkipped() {
         guard let pipeline else { return }
         Task { await pipeline.answerLastSkipped() }
-    }
-
-    /// Price of the model that answers now: the live price when known, else the built-in table.
-    private var activePrice: ClaudePrice {
-        claudeModels.first { $0.model == claudeModel }.flatMap { claudePrices[$0.displayName] } ?? claudeModel.price ?? ClaudePrice(input: 0, output: 0)
     }
 
     private static func storedStyle() -> AnswerStyle {
@@ -467,9 +450,6 @@ final class AppModel: ObservableObject {
                 $0.step = .done
                 $0.latency = latency
             }
-        case .usage(_, let usage):
-            sessionUsage.add(usage)
-            sessionCost = SessionCost(usd: sessionUsage.cost(price: activePrice))
         case .answerFailed(let id, let message):
             update(id) {
                 $0.step = .done

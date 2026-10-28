@@ -75,7 +75,6 @@ extension DebugCommandLine {
             for await event in pipeline.events {
                 switch event {
                 case .answerDelta(_, let t): print(t, terminator: "")
-                case .usage(_, let u): print("[usage in \(u.inputTokens) cached \(u.cacheReadTokens) written \(u.cacheCreationTokens) out \(u.outputTokens)]")
                 case .answerFinished(_, let latency): print("\n[finished \(latency.label)]")
                 case .answerFailed(_, let message): print("\n[failed] \(message)"); exit(1)
                 case .activity(_, .skipped(let reason)): print("[skipped \(reason)]")

@@ -206,7 +206,7 @@ private struct ClaudeModelCard: View {
 
     var body: some View {
         SettingsCard(icon: "sparkles", title: L("Модель Claude"),
-                     subtitle: L("Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход")) {
+                     subtitle: L("Кто отвечает на вопросы")) {
             CollapsibleList(items: model.claudeModels, isTop: { info in
                 ClaudeCatalogFallback.top.contains(info.id) || info.model == model.claudeModel
             }, order: { info in ClaudeCatalogFallback.top.firstIndex(of: info.id) ?? Int.max }) { info in
@@ -221,20 +221,17 @@ private struct ClaudeModelCard: View {
                             Text(ClaudeCatalogFallback.note(for: info.id)).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(model.price(for: info)?.localizedLabel ?? L("цена неизвестна"))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
                     }
             }
             HStack(spacing: 8) {
                 if model.claudeModelsLoading {
                     ProgressView().controlSize(.small)
-                    Text(L("Обновляю список и цены…"))
+                    Text(L("Обновляю список…"))
                 } else {
                     Image(systemName: model.claudeModelsFromAPI ? "checkmark.circle.fill" : "exclamationmark.circle")
                         .foregroundStyle(model.claudeModelsFromAPI ? Color.green : Color.orange)
                     Text(model.claudeModelsFromAPI
-                         ? (model.claudePrices.isEmpty ? L("Список из API, цены из встроенной таблицы") : L("Список из API, цены с anthropic.com"))
+                         ? L("Список из API")
                          : L("Нет связи с API — показаны известные модели"))
                 }
                 Spacer()
@@ -775,10 +772,10 @@ private struct ModeBadge: View {
                 switch state.mode {
                 case .inline:
                     Image(systemName: "bolt.fill").foregroundStyle(.yellow)
-                    Text(L("Целиком в контексте · %@ токенов", state.tokens.formatted()))
+                    Text(L("Целиком в контексте"))
                 case .search:
                     Image(systemName: "magnifyingglass").foregroundStyle(accent)
-                    Text(L("Поиск по базе · %@ токенов", state.tokens.formatted()))
+                    Text(L("Поиск по базе"))
                 case .none:
                     Image(systemName: "questionmark.circle")
                     Text(L("Нечего читать"))

@@ -35,7 +35,7 @@ import Testing
             .toolUseStart(index: 1, id: "t1", name: "search_kb"),
             .inputJSONDelta(index: 1, partialJSON: #"{"query":"кеш"}"#),
             .blockStop(index: 1),
-            .messageDelta(stopReason: "tool_use", outputTokens: 9),
+            .messageDelta(stopReason: "tool_use"),
             .messageStop
         ]),
         .events([.textDelta(index: 0, text: "Знайшов."), .messageStop])
@@ -60,7 +60,7 @@ import Testing
             .toolUseStart(index: 1, id: "t1", name: "search_kb"),
             .inputJSONDelta(index: 1, partialJSON: #"{"query":"x"}"#),
             .blockStop(index: 1),
-            .messageDelta(stopReason: "tool_use", outputTokens: 3),
+            .messageDelta(stopReason: "tool_use"),
             .messageStop
         ]),
         .events([.textDelta(index: 0, text: "Ок."), .messageStop])

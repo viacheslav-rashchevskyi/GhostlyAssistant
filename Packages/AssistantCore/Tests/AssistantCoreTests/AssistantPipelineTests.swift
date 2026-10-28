@@ -114,7 +114,7 @@ private extension Array where Element == CardEvent {
 }
 
 @Test func answersAQuestion() async {
-    let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "**Бо"), .textDelta(index: 0, text: " так.**"), .messageDelta(stopReason: "end_turn", outputTokens: 4), .messageStop])])
+    let claude = FakeClaude(scripts: [.events([.textDelta(index: 0, text: "**Бо"), .textDelta(index: 0, text: " так.**"), .messageDelta(stopReason: "end_turn"), .messageStop])])
     let p = makePipeline(text: "Чому ви обрали Swift для цього?", claude: claude)
     await p.handle(utterance)
     let ev = await collect(p)
@@ -189,7 +189,7 @@ private extension Array where Element == CardEvent {
 }
 
 @Test func refusalWithoutTextIsReported() async {
-    let claude = FakeClaude(scripts: [.events([.messageDelta(stopReason: "refusal", outputTokens: 0), .messageStop])])
+    let claude = FakeClaude(scripts: [.events([.messageDelta(stopReason: "refusal"), .messageStop])])
     let p = makePipeline(text: "Поясніть архітектуру вашого рішення", claude: claude)
     await p.handle(utterance)
     guard case .answerFailed(_, let message) = await collect(p).last else { Issue.record(); return }
@@ -198,7 +198,7 @@ private extension Array where Element == CardEvent {
 
 @Test func toolLoopRunsSearchThenAnswers() async {
     let claude = FakeClaude(scripts: [
-        .events([.toolUseStart(index: 0, id: "t1", name: "search_kb"), .inputJSONDelta(index: 0, partialJSON: #"{"query":"кеш"}"#), .blockStop(index: 0), .messageDelta(stopReason: "tool_use", outputTokens: 5), .messageStop]),
+        .events([.toolUseStart(index: 0, id: "t1", name: "search_kb"), .inputJSONDelta(index: 0, partialJSON: #"{"query":"кеш"}"#), .blockStop(index: 0), .messageDelta(stopReason: "tool_use"), .messageStop]),
         .events([.textDelta(index: 0, text: "Знайшов."), .messageStop])
     ])
     let kb = FakeKnowledge(payload: .search, result: [.text("hit")])

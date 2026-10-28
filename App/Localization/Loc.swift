@@ -34,7 +34,6 @@ enum Loc {
         "Тишина": "Silence",
         "Очистить чат": "Clear chat",
         "Ответить": "Answer",
-        "Потрачено за сессию: %d вход · %d из кэша · %d в кэш · %d выход токенов": "Spent this session: %d input · %d cache reads · %d cache writes · %d output tokens",
         "Собеседник": "Participant",
         "распознаю речь": "recognizing speech",
         "Распознаю": "Recognizing",
@@ -85,16 +84,14 @@ enum Loc {
         "Отмена": "Cancel",
         "Где взять ключ →": "Get a key →",
         "Модель Claude": "Claude model",
-        "Кто отвечает на вопросы. Цена — за 1M токенов на вход / выход": "Who answers. Price per 1M input / output tokens",
+        "Кто отвечает на вопросы": "Who answers the questions",
         "рекомендуется": "recommended",
         "Самая быстрая — для живого звонка": "Fastest — made for a live call",
         "Баланс ума и скорости": "Balance of smarts and speed",
         "Умная, отвечает медленнее": "Smart, answers slower",
         "Самая мощная — долго думает, для звонка медленная": "Most capable — thinks long, slow for a call",
-        "цена неизвестна": "price unknown",
-        "Обновляю список и цены…": "Updating models and prices…",
-        "Список из API, цены из встроенной таблицы": "Models from the API, built-in prices",
-        "Список из API, цены с anthropic.com": "Models from the API, prices from anthropic.com",
+        "Обновляю список…": "Updating models…",
+        "Список из API": "Models from the API",
         "Нет связи с API — показаны известные модели": "API unreachable — showing known models",
         "Обновить": "Refresh",
         "Свернуть": "Collapse",
@@ -167,8 +164,8 @@ enum Loc {
         "не читается": "unreadable",
         "Пропущены: %@": "Skipped: %@",
         "Читаю файлы…": "Reading files…",
-        "Целиком в контексте · %@ токенов": "Fully in context · %@ tokens",
-        "Поиск по базе · %@ токенов": "Search mode · %@ tokens",
+        "Целиком в контексте": "Fully in context",
+        "Поиск по базе": "Search mode",
         "Нечего читать": "Nothing to read",
         "Демонстрация экрана": "Screen sharing",
         "Как держать чат вне трансляции в любой программе созвонов": "How to keep the chat out of a share in any meeting app",
@@ -187,19 +184,10 @@ func L(_ ru: String, _ args: CVarArg...) -> String {
     return args.isEmpty ? text : String(format: text, arguments: args)
 }
 
-extension ClaudePrice {
-    /// "$0,10 / $0,50" in Russian, "$0.10 / $0.50" in English.
-    var localizedLabel: String {
-        Loc.language == .en ? label.replacingOccurrences(of: ",", with: ".") : label
-    }
-}
-
 extension Latency {
-    /// "0,8 с · 140 ток/с" in Russian, "0.8 s · 140 tok/s" in English.
+    /// "0,8 с" in Russian, "0.8 s" in English.
     var localizedLabel: String {
         guard Loc.language == .en else { return label }
-        let seconds = String(format: "%.1f s", (timeToFirstToken * 10).rounded() / 10)
-        guard let tps = tokensPerSecond else { return seconds }
-        return "\(seconds) · \(Int(tps.rounded())) tok/s"
+        return String(format: "%.1f s", (timeToFirstToken * 10).rounded() / 10)
     }
 }
