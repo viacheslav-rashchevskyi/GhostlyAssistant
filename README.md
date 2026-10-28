@@ -52,7 +52,7 @@ GhostlyAssistant is vendor-agnostic: answers come from the language model you ch
 - **Model choice** — for Claude the list comes from the Models API for your key.
 - **Whisper model choice** — a catalog of 9 variants with download, cancel, switch and delete.
 - **Recognition languages** — set separately for the other people on the call and for your own voice.
-- **Model parameters** — thinking, effort and maximum answer length; every setting that slows answers down is marked ⚡.
+- **Model parameters** — thinking, effort and maximum answer length; each one is labelled where it affects answer speed.
 - **Answer style** — brief / balanced / detailed, plus your own instructions for the prompt.
 - **English and Russian interface**, switchable on the fly; text size; launch at login.
 - **Hotkeys** — `⌥⌘H` hides/shows the chat, `⌥⌘A` answers the last skipped line.

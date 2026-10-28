@@ -499,7 +499,7 @@ private struct WhisperRow: View {
 
 // MARK: - Model parameters
 
-/// Thinking, effort and reply length; every row marked ⚡ changes how fast answers arrive.
+/// Thinking, effort and reply length; every row is tagged as changing how fast answers arrive.
 private struct GenerationCard: View {
     @ObservedObject var model: AppModel
     @State private var typed = ""
@@ -509,8 +509,8 @@ private struct GenerationCard: View {
 
     var body: some View {
         SettingsCard(icon: "dial.medium.fill", title: L("Параметры модели"),
-                     subtitle: L("Как глубоко модель думает над ответом. ⚡ — влияет на скорость")) {
-            row(title: L("⚡ Рассуждения"), hint: L("Адаптивно — модель думает перед ответом, первый текст появляется позже")) {
+                     subtitle: L("Как глубоко модель думает над ответом")) {
+            row(title: L("Рассуждения"), hint: L("Адаптивно — модель думает перед ответом, первый текст появляется позже")) {
                 Picker("", selection: $model.generation.thinking) {
                     Text(L("Выкл")).tag(GenerationSettings.Thinking.off)
                     Text(L("Адаптивно")).tag(GenerationSettings.Thinking.adaptive)
@@ -522,7 +522,7 @@ private struct GenerationCard: View {
 
             Divider().opacity(0.3)
 
-            row(title: L("⚡ Глубина"), hint: L("High и выше — ответ заметно дольше")) {
+            row(title: L("Глубина"), hint: L("High и выше — ответ заметно дольше")) {
                 Picker("", selection: $model.generation.effort) {
                     ForEach(GenerationSettings.Effort.allCases, id: \.self) { level in
                         Text(Self.title(level)).tag(level)
@@ -535,7 +535,7 @@ private struct GenerationCard: View {
 
             Divider().opacity(0.3)
 
-            row(title: L("⚡ Максимальная длина ответа"),
+            row(title: L("Максимальная длина ответа"),
                 hint: L("Ограничение сверху: длинные ответы идут дольше, слишком мало — ответ оборвётся")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle(isOn: Binding(
@@ -582,7 +582,11 @@ private struct GenerationCard: View {
     private func row<Control: View, Notes: View>(title: String, hint: String, @ViewBuilder control: () -> Control,
                                                 @ViewBuilder notes: () -> Notes) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.body.weight(.medium))
+            HStack(spacing: 8) {
+                Text(title).font(.body.weight(.medium))
+                Spacer()
+                SpeedTag()
+            }
             control()
             Text(hint).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             notes()
@@ -651,6 +655,19 @@ private struct GenerationCard: View {
         let lo = log(Double(range.lowerBound)), hi = log(Double(range.upperBound))
         let raw = exp(lo + position * (hi - lo))
         return min(max(Int((raw / 256).rounded()) * 256, range.lowerBound), range.upperBound)
+    }
+}
+
+/// Marks a setting that changes how fast answers arrive.
+private struct SpeedTag: View {
+    var body: some View {
+        Label(L("Влияет на скорость"), systemImage: "speedometer")
+            .labelStyle(.titleAndIcon)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Theme.raised))
     }
 }
 
