@@ -52,13 +52,14 @@ GhostlyAssistant is vendor-agnostic: answers come from the language model you ch
 - **Model choice** — for Claude the list comes from the Models API for your key.
 - **Whisper model choice** — a catalog of 9 variants with download, cancel, switch and delete.
 - **Recognition languages** — set separately for the other people on the call and for your own voice.
+- **Model parameters** — thinking, effort and maximum answer length; every setting that slows answers down is marked ⚡.
 - **Answer style** — brief / balanced / detailed, plus your own instructions for the prompt.
 - **English and Russian interface**, switchable on the fly; text size; launch at login.
 - **Hotkeys** — `⌥⌘H` hides/shows the chat, `⌥⌘A` answers the last skipped line.
 
 ## How it's built
 
-Logic that can be covered by automated tests lives in the `AssistantCore` Swift package (Swift Testing, 125 tests):
+Logic that can be covered by automated tests lives in the `AssistantCore` Swift package (Swift Testing, 137 tests):
 cutting audio into utterances, Claude response types and streaming parser, request building, the assistant pipeline,
 the knowledge base and search. The `App/` target holds only what is tied to the OS: audio and screen capture
 (ScreenCaptureKit), Whisper, the floating window (AppKit), the interface (SwiftUI) and settings.

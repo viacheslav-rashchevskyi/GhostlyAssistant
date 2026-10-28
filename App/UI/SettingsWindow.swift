@@ -51,6 +51,7 @@ struct SettingsView: View {
                 LanguageCard(model: model)
                 APIKeyCard(model: model)
                 ClaudeModelCard(model: model)
+                GenerationCard(model: model)
                 AnswerStyleCard(model: model)
                 SpeechCard(model: model)
                 WhisperModelCard(model: model)
@@ -495,6 +496,163 @@ private struct WhisperRow: View {
 }
 
 // MARK: - Answer style
+
+// MARK: - Model parameters
+
+/// Thinking, effort and reply length; every row marked ⚡ changes how fast answers arrive.
+private struct GenerationCard: View {
+    @ObservedObject var model: AppModel
+    @State private var typed = ""
+
+    private var resolved: ResolvedGeneration { model.resolvedGeneration }
+    private var range: ClosedRange<Int> { model.maxTokensRange }
+
+    var body: some View {
+        SettingsCard(icon: "dial.medium.fill", title: L("Параметры модели"),
+                     subtitle: L("Как глубоко модель думает над ответом. ⚡ — влияет на скорость")) {
+            row(title: L("⚡ Рассуждения"), hint: L("Адаптивно — модель думает перед ответом, первый текст появляется позже")) {
+                Picker("", selection: $model.generation.thinking) {
+                    Text(L("Выкл")).tag(GenerationSettings.Thinking.off)
+                    Text(L("Адаптивно")).tag(GenerationSettings.Thinking.adaptive)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(model.claudeModel.alwaysThinks || !model.claudeModel.supportsAdaptiveThinking)
+            } notes: { thinkingNotes }
+
+            Divider().opacity(0.3)
+
+            row(title: L("⚡ Глубина"), hint: L("High и выше — ответ заметно дольше")) {
+                Picker("", selection: $model.generation.effort) {
+                    ForEach(GenerationSettings.Effort.allCases, id: \.self) { level in
+                        Text(Self.title(level)).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(model.claudeModel.supportedEfforts.isEmpty)
+            } notes: { effortNotes }
+
+            Divider().opacity(0.3)
+
+            row(title: L("⚡ Максимальная длина ответа"),
+                hint: L("Ограничение сверху: длинные ответы идут дольше, слишком мало — ответ оборвётся")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: Binding(
+                        get: { model.generation.maxTokens == nil },
+                        set: { model.generation.maxTokens = $0 ? nil : resolved.maxTokens }
+                    )) {
+                        Text(model.generation.maxTokens == nil ? L("Авто — сейчас %d токенов", resolved.maxTokens) : L("Авто"))
+                    }
+                    .tint(Theme.accent)
+                    if let chosen = model.generation.maxTokens {
+                        HStack(spacing: 10) {
+                            Slider(value: Binding(
+                                get: { Self.position(of: chosen, in: range) },
+                                set: { model.generation.maxTokens = Self.tokens(at: $0, in: range) }
+                            ))
+                            .tint(Theme.accent)
+                            TextField("", text: $typed)
+                                .textFieldStyle(.plain)
+                                .multilineTextAlignment(.trailing)
+                                .font(.body.monospacedDigit())
+                                .frame(width: 70)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.raised))
+                                .onSubmit(commitTyped)
+                                .onAppear { typed = String(chosen) }
+                                .onChange(of: chosen) { _, new in typed = String(new) }
+                        }
+                        Text(L("От %d до %d токенов — максимум берётся у выбранной модели", range.lowerBound, range.upperBound))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            } notes: { lengthNotes }
+
+            HStack {
+                Spacer()
+                Button(L("Сбросить к быстрым настройкам")) { withAnimation(.smooth) { model.generation = .fast } }
+                    .buttonStyle(.quiet)
+                    .disabled(model.generation == .fast)
+            }
+        }
+    }
+
+    private func row<Control: View, Notes: View>(title: String, hint: String, @ViewBuilder control: () -> Control,
+                                                @ViewBuilder notes: () -> Notes) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.body.weight(.medium))
+            control()
+            Text(hint).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            notes()
+        }
+    }
+
+    @ViewBuilder private var thinkingNotes: some View {
+        if resolved.adjustments.contains(.alwaysThinks) {
+            note(L("Эта модель всегда рассуждает"))
+        } else if resolved.adjustments.contains(.adaptiveUnsupported) || !model.claudeModel.supportsAdaptiveThinking {
+            note(L("Эта модель не умеет адаптивные рассуждения"))
+        } else if resolved.adjustments.contains(.thinkingTurnedOnForEffort) {
+            note(L("На глубине выше High эта модель не отвечает без рассуждений — они включены"))
+        }
+    }
+
+    @ViewBuilder private var effortNotes: some View {
+        if resolved.adjustments.contains(.effortUnsupported) {
+            note(L("Эта модель не поддерживает настройку глубины"))
+        }
+        ForEach(resolved.adjustments.compactMap { if case .effortLowered(let to) = $0 { to } else { nil } }, id: \.self) { to in
+            note(L("Эта модель не поддерживает %@ — будет %@", Self.title(model.generation.effort), Self.title(to)))
+        }
+    }
+
+    @ViewBuilder private var lengthNotes: some View {
+        ForEach(resolved.adjustments.compactMap { if case .maxTokensClamped(let to) = $0 { to } else { nil } }, id: \.self) { to in
+            note(L("У этой модели максимум %d токенов", to))
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Label(text, systemImage: "info.circle")
+            .font(.caption)
+            .foregroundStyle(Color.orange)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func commitTyped() {
+        let digits = typed.filter(\.isNumber)
+        guard let value = Int(digits) else { typed = String(model.generation.maxTokens ?? resolved.maxTokens); return }
+        let clamped = min(max(value, range.lowerBound), range.upperBound)
+        model.generation.maxTokens = clamped
+        typed = String(clamped)
+    }
+
+    private static func title(_ level: GenerationSettings.Effort) -> String {
+        switch level {
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .xhigh: "XHigh"
+        case .max: "Max"
+        }
+    }
+
+    /// The slider is logarithmic, so 256…128K is usable end to end.
+    private static func position(of tokens: Int, in range: ClosedRange<Int>) -> Double {
+        let lo = log(Double(range.lowerBound)), hi = log(Double(range.upperBound))
+        guard hi > lo else { return 0 }
+        return (log(Double(min(max(tokens, range.lowerBound), range.upperBound))) - lo) / (hi - lo)
+    }
+
+    /// Rounded to 256 so the field doesn't show noise like 3517.
+    private static func tokens(at position: Double, in range: ClosedRange<Int>) -> Int {
+        let lo = log(Double(range.lowerBound)), hi = log(Double(range.upperBound))
+        let raw = exp(lo + position * (hi - lo))
+        return min(max(Int((raw / 256).rounded()) * 256, range.lowerBound), range.upperBound)
+    }
+}
 
 private struct AnswerStyleCard: View {
     @ObservedObject var model: AppModel

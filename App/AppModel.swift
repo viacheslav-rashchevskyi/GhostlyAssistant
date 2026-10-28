@@ -101,10 +101,24 @@ final class AppModel: ObservableObject {
         didSet {
             UserDefaults.standard.set(claudeModel.id, forKey: "claudeModel")
             let model = claudeModel
+            let generation = generation, maxOutput = activeMaxOutput
             Task {
                 await pipeline?.setModel(model)
+                await pipeline?.setGeneration(generation, maxOutput: maxOutput)
                 await knowledgeStore?.setModel(model)
                 await knowledgeStore?.prewarm()
+            }
+        }
+    }
+    /// Thinking, effort and reply length chosen in settings; the defaults are the fastest.
+    @Published var generation = AppModel.storedGeneration() {
+        didSet {
+            if let data = try? JSONEncoder().encode(generation) { UserDefaults.standard.set(data, forKey: "generation") }
+            let generation = generation, maxOutput = activeMaxOutput
+            Task {
+                await pipeline?.setGeneration(generation, maxOutput: maxOutput)
+                await knowledgeStore?.setGeneration(generation)
+                await knowledgeStore?.prewarm() // thinking and effort are part of the cached request
             }
         }
     }
@@ -164,6 +178,7 @@ final class AppModel: ObservableObject {
             let store = KnowledgeStore(api: client)
             await store.setModel(claudeModel)
             await store.setStyle(answerStyle)
+            await store.setGeneration(generation)
             knowledgeStore = store
             let pipeline = AssistantPipeline(
                 transcriber: whisper,
@@ -173,6 +188,7 @@ final class AppModel: ObservableObject {
             )
             await pipeline.setModel(claudeModel)
             await pipeline.setStyle(answerStyle)
+            await pipeline.setGeneration(generation, maxOutput: activeMaxOutput)
             install(pipeline)
             Task { await refreshClaudeModels() }
             Task { await reloadKnowledge() }
@@ -211,8 +227,23 @@ final class AppModel: ObservableObject {
            let models = try? await ClaudeClient(apiKey: key).listModels(), !models.isEmpty {
             claudeModels = models.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
             claudeModelsFromAPI = true
+            await pipeline?.setGeneration(generation, maxOutput: activeMaxOutput)
         }
         claudeModelsLoading = false
+    }
+
+    /// The answering model's output cap from the Models API, if it reported one.
+    var activeMaxOutput: Int? {
+        claudeModels.first { $0.model == claudeModel }?.maxTokens
+    }
+
+    /// What the answering model will actually be sent, with the reasons it differs from the settings.
+    var resolvedGeneration: ResolvedGeneration {
+        claudeModel.resolve(generation, maxOutput: activeMaxOutput)
+    }
+
+    var maxTokensRange: ClosedRange<Int> {
+        GenerationSettings.minMaxTokens...max(GenerationSettings.minMaxTokens, activeMaxOutput ?? claudeModel.maxOutputFallback)
     }
 
     // MARK: Whisper models
@@ -364,6 +395,10 @@ final class AppModel: ObservableObject {
     func answerLastSkipped() {
         guard let pipeline else { return }
         Task { await pipeline.answerLastSkipped() }
+    }
+
+    private static func storedGeneration() -> GenerationSettings {
+        UserDefaults.standard.data(forKey: "generation").flatMap { try? JSONDecoder().decode(GenerationSettings.self, from: $0) } ?? .fast
     }
 
     private static func storedStyle() -> AnswerStyle {

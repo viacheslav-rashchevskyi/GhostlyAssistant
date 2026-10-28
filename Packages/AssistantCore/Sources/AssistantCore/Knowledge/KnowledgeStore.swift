@@ -24,6 +24,7 @@ public actor KnowledgeStore: KnowledgeProviding {
     private var index = BM25Index(documents: [])
     private var model = ClaudeModel.haiku
     private var style = AnswerStyle()
+    private var generation = GenerationSettings.fast
     /// file_id per PDF, keyed by path and modification date, so re-reading doesn't re-upload.
     private var uploaded: [String: String] = [:]
 
@@ -39,6 +40,11 @@ public actor KnowledgeStore: KnowledgeProviding {
 
     public func setStyle(_ style: AnswerStyle) {
         self.style = style
+    }
+
+    /// Thinking and effort are part of the cached request, so the prewarm must send the same ones.
+    public func setGeneration(_ generation: GenerationSettings) {
+        self.generation = generation
     }
 
     public func configure(_ urls: [URL]) async -> (mode: KBMode, tokens: Int, skipped: [String]) {
@@ -65,7 +71,7 @@ public actor KnowledgeStore: KnowledgeProviding {
 
     public func prewarm() async {
         guard mode != .none else { return }
-        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools(), model: model, style: style))
+        try? await api.send(RequestBuilder.prewarm(kb: payload(), tools: tools(), model: model, style: style, generation: generation))
     }
 
     public func payload() -> KBPayload {

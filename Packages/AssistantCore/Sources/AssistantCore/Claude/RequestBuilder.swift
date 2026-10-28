@@ -78,7 +78,9 @@ public struct CountTokensRequest: Encodable, Equatable, Sendable {
 }
 
 public enum RequestBuilder {
-    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle()) -> MessagesRequest {
+    public static func answer(_ ctx: AnswerContext, kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle(),
+                              generation: GenerationSettings = .fast, maxOutput: Int? = nil) -> MessagesRequest {
+        let g = model.resolve(generation, maxOutput: maxOutput)
         var content = kbBlocks(kb)
         if !ctx.recentTranscript.isEmpty {
             content.append(.text("<recent_transcript>\n\(ctx.recentTranscript.joined(separator: "\n"))\n</recent_transcript>"))
@@ -94,13 +96,13 @@ public enum RequestBuilder {
         content.append(.text("<\(tag)>\n\(ctx.utterance)\n</\(tag)>"))
         return MessagesRequest(
             model: model.id,
-            maxTokens: model.maxTokens,
+            maxTokens: g.maxTokens,
             stream: true,
             system: system(kb, style: style),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
-            thinking: model.thinking,
-            outputConfig: model.effort.map { MessagesRequest.OutputConfig(effort: $0) },
+            thinking: g.thinking,
+            outputConfig: g.effort.map { MessagesRequest.OutputConfig(effort: $0) },
             fallbacks: model.fallbacks
         )
     }
@@ -113,7 +115,9 @@ public enum RequestBuilder {
     }
 
     /// Must build the same system prefix as `answer(...)`, or the first real question misses the warmed cache.
-    public static func prewarm(kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle()) -> MessagesRequest {
+    public static func prewarm(kb: KBPayload, tools: [ToolDefinition], model: ClaudeModel = .haiku, style: AnswerStyle = AnswerStyle(),
+                               generation: GenerationSettings = .fast) -> MessagesRequest {
+        let g = model.resolve(generation)
         var content = kbBlocks(kb)
         content.append(.text("<current_utterance>\n\n</current_utterance>"))
         return MessagesRequest(
@@ -123,8 +127,8 @@ public enum RequestBuilder {
             system: system(kb, style: style),
             messages: [Message(role: .user, content: content)],
             tools: tools.isEmpty ? nil : tools,
-            thinking: model.thinking,
-            outputConfig: model.effort.map { MessagesRequest.OutputConfig(effort: $0) },
+            thinking: g.thinking,
+            outputConfig: g.effort.map { MessagesRequest.OutputConfig(effort: $0) },
             fallbacks: model.fallbacks
         )
     }

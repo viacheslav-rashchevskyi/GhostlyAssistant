@@ -63,6 +63,9 @@ public actor AssistantPipeline {
     private var transcript = TranscriptBuffer()
     private var model = ClaudeModel.haiku
     private var style = AnswerStyle()
+    private var generation = GenerationSettings.fast
+    /// The answering model's output cap from the Models API, if known.
+    private var maxOutput: Int?
     /// Heard utterances that weren't answered, so the user can ask for an answer anyway (newest last).
     private var skipped: [(id: UUID, text: String)] = []
 
@@ -87,6 +90,11 @@ public actor AssistantPipeline {
 
     public func setStyle(_ style: AnswerStyle) {
         self.style = style
+    }
+
+    public func setGeneration(_ generation: GenerationSettings, maxOutput: Int?) {
+        self.generation = generation
+        self.maxOutput = maxOutput
     }
 
     public func handle(_ u: Utterance) async {
@@ -176,7 +184,7 @@ public actor AssistantPipeline {
     private func answer(_ ctx: AnswerContext, id: UUID, startedAt: Date) async {
         let kb = await knowledge.payload()
         let tools = await knowledge.tools()
-        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools, model: model, style: style)
+        var request = RequestBuilder.answer(ctx, kb: kb, tools: tools, model: model, style: style, generation: generation, maxOutput: maxOutput)
         var gate = AnswerGate()
         var started = false
         var fullText = ""
