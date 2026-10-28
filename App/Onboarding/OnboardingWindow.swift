@@ -358,8 +358,6 @@ private struct KeyStep: View {
                         StatusLine(kind: .error, text: L("Ключ не подходит. Проверьте, что он скопирован целиком."))
                     }
                 }
-                Link(L("Где взять ключ →"), destination: URL(string: "https://console.anthropic.com/settings/keys")!)
-                    .font(.callout)
             }
             Text(L("Можно пропустить и добавить ключ позже в настройках — без него приложение распознаёт речь, но не отвечает."))
                 .font(.caption)

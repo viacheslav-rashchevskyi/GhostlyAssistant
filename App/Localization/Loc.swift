@@ -146,7 +146,6 @@ enum Loc {
         "Заменить": "Replace",
         "Сохранить": "Save",
         "Отмена": "Cancel",
-        "Где взять ключ →": "Get a key →",
         "Модель Claude": "Claude model",
         "Кто отвечает на вопросы": "Who answers the questions",
         "Параметры модели": "Model parameters",

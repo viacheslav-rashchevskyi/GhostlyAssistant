@@ -186,8 +186,6 @@ private struct APIKeyCard: View {
                     }
                 }
                 .transition(.blurReplace)
-                Link(L("Где взять ключ →"), destination: URL(string: "https://console.anthropic.com/settings/keys")!)
-                    .font(.caption)
             }
         }
     }
