@@ -51,6 +51,8 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var turns: [ChatTurn] = []
     @Published private(set) var audioPresent = false
+    /// Call audio is ignored while true; push-to-talk and typed questions still work. Not kept across launches.
+    @Published private(set) var listeningPaused = false
     @Published private(set) var status: CardStatus = .ready
     @Published private(set) var mic: MicState = .idle
     @Published private(set) var micLevel: Float = 0
@@ -248,6 +250,13 @@ final class AppModel: ObservableObject {
             saveAPIKey(trimmed)
             return .unverified
         }
+    }
+
+    /// Stops or resumes sending call audio to Whisper.
+    func toggleListening() {
+        listeningPaused.toggle()
+        capture.setPaused(listeningPaused)
+        if listeningPaused { audioPresent = false }
     }
 
     func ask(_ text: String) {

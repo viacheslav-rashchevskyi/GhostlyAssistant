@@ -12,7 +12,7 @@ struct ChatView: View {
             Divider().opacity(0.25)
             Group {
                 if model.status == .ready {
-                    if model.turns.isEmpty { EmptyChat() } else { Messages(model: model) }
+                    if model.turns.isEmpty { EmptyChat(paused: model.listeningPaused) } else { Messages(model: model) }
                 } else {
                     StatusNotice(status: model.status, openSettings: openSettings)
                 }
@@ -39,7 +39,8 @@ private struct ChatHeader: View {
             GhostGlyph(size: 15)
             Text("Ghostly")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-            ListeningPill(active: model.audioPresent)
+            ListeningPill(active: model.audioPresent, paused: model.listeningPaused) { model.toggleListening() }
+                .disabled(model.status != .ready)
             Spacer()
             if let latency = model.latestLatency {
                 Label(latency.localizedLabel, systemImage: "bolt.fill")
@@ -69,23 +70,48 @@ private struct ChatHeader: View {
     }
 }
 
+/// Shows whether call audio is heard; a click pauses or resumes listening, and hovering previews the click.
 private struct ListeningPill: View {
     let active: Bool
+    let paused: Bool
+    let toggle: () -> Void
+    @State private var hovering = false
+
+    private var icon: String {
+        if hovering { return paused ? "play.fill" : "pause.fill" }
+        return paused ? "pause.fill" : "waveform"
+    }
+
+    private var title: String {
+        if paused { return L("Пауза") }
+        return active ? L("Слушаю") : L("Тишина")
+    }
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "waveform")
-            Text(active ? L("Слушаю") : L("Тишина"))
-                .contentTransition(.opacity)
+        Button(action: toggle) {
+            HStack(spacing: 4) {
+                // The symbols differ in height; a fixed box keeps the pill and its text from jumping when they swap.
+                Image(systemName: icon)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 11, height: 11)
+                Text(title)
+                    .contentTransition(.opacity)
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .font(.caption2.weight(.medium))
+            .padding(.horizontal, 8)
+            .frame(height: 19)
+            .foregroundStyle(paused ? Color.orange : (active ? Theme.accent : Color.secondary))
+            .background(Capsule().fill(paused ? Color.orange.opacity(0.15) : (active ? Theme.accentSoft : Color.primary.opacity(hovering ? 0.1 : 0.06))))
+            .contentShape(Capsule())
         }
-        .lineLimit(1)
-        .fixedSize()
-        .font(.caption2.weight(.medium))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .foregroundStyle(active ? Theme.accent : Color.secondary)
-        .background(Capsule().fill(active ? Theme.accentSoft : Color.primary.opacity(0.06)))
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(paused ? L("Возобновить прослушивание") : L("Приостановить прослушивание"))
         .animation(.smooth, value: active)
+        .animation(.smooth, value: paused)
+        .animation(.smooth(duration: 0.15), value: hovering)
     }
 }
 
@@ -375,19 +401,32 @@ private struct TypingDots: View {
 // MARK: - Empty and status states
 
 private struct EmptyChat: View {
+    let paused: Bool
+
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "waveform.circle")
+            Image(systemName: paused ? "pause.circle" : "waveform.circle")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(Theme.accent)
-            Text(L("Слушаю звонок"))
+                .foregroundStyle(paused ? Color.orange : Theme.accent)
+                .contentTransition(.symbolEffect(.replace))
+            Text(paused ? L("Прослушивание на паузе") : L("Слушаю звонок"))
                 .font(.headline)
-            Text(L("Вопросы собеседников и ответы появятся здесь. Можно спросить и самому — текстом или голосом."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            // Both hints are laid out so the block keeps the taller one's height: the centred icon and title don't jump on pause.
+            ZStack(alignment: .top) {
+                hint(L("Вопросы собеседников и ответы появятся здесь. Можно спросить и самому — текстом или голосом."), shown: !paused)
+                hint(L("Звук звонка сейчас не распознаётся. Нажмите «Пауза» вверху, чтобы продолжить. Спросить самому можно и сейчас."), shown: paused)
+            }
         }
         .padding(24)
+    }
+
+    private func hint(_ text: String, shown: Bool) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .opacity(shown ? 1 : 0)
+            .accessibilityHidden(!shown)
     }
 }
 

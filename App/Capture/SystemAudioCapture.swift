@@ -20,6 +20,8 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
     private var stream: SCStream?
     private var lastLevel: Bool?
     private var quietSamples = 0
+    /// Touched only on `queue`.
+    private var paused = false
 
     func start() async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -54,8 +56,21 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
         stream = nil
     }
 
+    /// While paused the stream keeps running but its audio is dropped, so nothing reaches Whisper.
+    /// The unfinished utterance is discarded too, so speech from before the pause never joins speech after it.
+    func setPaused(_ paused: Bool) {
+        queue.async { [self] in
+            guard paused != self.paused else { return }
+            self.paused = paused
+            segmenter.discard()
+            quietSamples = 0
+            lastLevel = nil // the level is reported afresh after resuming
+            if paused { onLevel?(false) }
+        }
+    }
+
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .audio, sampleBuffer.isValid,
+        guard type == .audio, !paused, sampleBuffer.isValid,
               let asbd = sampleBuffer.formatDescription?.audioStreamBasicDescription else { return }
         var samples: [Float] = []
         try? sampleBuffer.withAudioBufferList { list, _ in

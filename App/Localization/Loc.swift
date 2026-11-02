@@ -96,6 +96,12 @@ enum Loc {
         // Chat
         "Слушаю": "Listening",
         "Тишина": "Silence",
+        "Пауза": "Paused",
+        "Приостановить прослушивание": "Pause listening",
+        "Возобновить прослушивание": "Resume listening",
+        "Прослушивание на паузе": "Listening is paused",
+        "Звук звонка сейчас не распознаётся. Нажмите «Пауза» вверху, чтобы продолжить. Спросить самому можно и сейчас.":
+            "Call audio isn't being recognised right now. Click “Paused” at the top to resume. You can still ask yourself.",
         "Очистить чат": "Clear chat",
         "Ответить": "Answer",
         "Собеседник": "Participant",
