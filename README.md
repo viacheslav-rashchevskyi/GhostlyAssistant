@@ -107,6 +107,11 @@ See [Requirements](#requirements) first.
 
 Then continue with [First launch](#first-launch).
 
+Updates install from inside the app. It checks at launch and once a day; when a new version is out, a window shows
+what changed with **Install**, **Remind Me Later** and **Skip This Version**. Check by hand from the menu bar icon →
+**Check for Updates…** or in settings → **Updates**. Versions up to 1.3.0 can't update themselves — install the next
+release from the DMG once.
+
 ## Build from source
 
 You need macOS 26+, Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
@@ -129,6 +134,26 @@ Core tests:
 ```bash
 swift test --package-path Packages/AssistantCore
 ```
+
+### Publishing a release
+
+Updates come through [Sparkle](https://sparkle-project.org). The app reads
+`https://github.com/viacheslav-rashchevskyi/GhostlyAssistant/releases/latest/download/appcast.xml`, and every update
+is signed with an EdDSA key whose public half is `SUPublicEDKey` in `App/Info.plist`. The private half lives in the
+login Keychain of the Mac that publishes; keep a backup
+(`build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x <file>`, restore with `-f <file>`) — without
+it, installed apps won't accept new updates.
+
+1. Raise `CFBundleShortVersionString` and `CFBundleVersion` in `App/Info.plist`. Sparkle compares `CFBundleVersion`,
+   so it must grow with every release.
+2. Build the Release app (command above) and the DMG: `scripts/make-dmg.sh`.
+3. Create the GitHub release `v<version>` with the notes as usual, under a `## What's changed` heading.
+4. `scripts/publish-update.sh` takes that section from the release, signs the DMG, writes the appcast and uploads
+   both files to the release. Pass a notes file to use it instead of the release body, and `--no-upload` to only
+   write `build/updates/appcast.xml`.
+
+To try an update locally, serve a test appcast and point an older build at it:
+`GHOSTLY_UPDATE_FEED=http://localhost:8765/appcast.xml`.
 
 ## First launch
 

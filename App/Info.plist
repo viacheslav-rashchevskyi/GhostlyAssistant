@@ -30,5 +30,13 @@
 	<string>Микрофон нужен, чтобы задать вопрос голосом.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>GhostlyAssistant распознаёт речь собеседников.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/viacheslav-rashchevskyi/GhostlyAssistant/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>/L012rowe0Svh9N12MYS0levYoMb8+IsjQ/j4sZvqvw=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

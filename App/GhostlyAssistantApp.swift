@@ -7,7 +7,7 @@ struct GhostlyAssistantApp: App {
 
     var body: some Scene {
         MenuBarExtra("GhostlyAssistant", image: "MenuBarIcon") {
-            MenuContent(model: appDelegate.model, appDelegate: appDelegate)
+            MenuContent(model: appDelegate.model, updater: appDelegate.updater, appDelegate: appDelegate)
         }
     }
 }
@@ -15,6 +15,7 @@ struct GhostlyAssistantApp: App {
 /// Menu bar items; the first one names what it will do to the chat window right now.
 private struct MenuContent: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var updater: AppUpdater
     let appDelegate: AppDelegate
 
     var body: some View {
@@ -23,6 +24,8 @@ private struct MenuContent: View {
         Button(L("Настройки…")) { appDelegate.openSettings() }
             .keyboardShortcut(",", modifiers: .command)
         Button(L("Мастер настройки…")) { appDelegate.openOnboarding(again: true) }
+        Button(L("Проверить обновления…")) { updater.checkForUpdates() }
+            .disabled(!updater.canCheckForUpdates)
         Divider()
         Button(L("Выйти")) { NSApp.terminate(nil) }
             .keyboardShortcut("q", modifiers: .command)
@@ -32,6 +35,7 @@ private struct MenuContent: View {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    let updater = AppUpdater()
     private var panel: CardPanel?
     private var settings: SettingsWindowController?
     private let onboarding = Onboarding()
@@ -48,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NSApp.appearance = model.theme.appearance
-        settings = SettingsWindowController(model: model)
+        settings = SettingsWindowController(model: model, updater: updater)
         let card = ChatView(model: model) { [weak self] in self?.openSettings() }
         let host = NSHostingView(rootView: card)
         host.sizingOptions = [.minSize] // the user sizes the card; content fills it
@@ -76,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.orderFrontRegardless()
         }
         Task { await model.start() }
+        updater.start()
         // Development aid: GHOSTLY_OPEN_SETTINGS=1 opens settings at launch (pair with GHOSTLY_CAPTURABLE=1 to screenshot).
         if ProcessInfo.processInfo.environment["GHOSTLY_OPEN_SETTINGS"] == "1" { openSettings() }
         if ProcessInfo.processInfo.environment["GHOSTLY_FOCUS_CHAT"] == "1" {
