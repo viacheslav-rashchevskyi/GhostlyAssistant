@@ -8,9 +8,11 @@ import UniformTypeIdentifiers
 final class SettingsWindowController {
     private var window: NSWindow?
     private let model: AppModel
+    private let updater: AppUpdater
 
-    init(model: AppModel) {
+    init(model: AppModel, updater: AppUpdater) {
         self.model = model
+        self.updater = updater
     }
 
     func show() {
@@ -29,7 +31,7 @@ final class SettingsWindowController {
             w.excludeFromCapture()
             w.isReleasedWhenClosed = false
             w.minSize = NSSize(width: 460, height: 420)
-            w.contentView = NSHostingView(rootView: SettingsView(model: model))
+            w.contentView = NSHostingView(rootView: SettingsView(model: model, updater: updater))
             w.center()
             window = w
         }
@@ -43,6 +45,7 @@ final class SettingsWindowController {
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
+    let updater: AppUpdater
 
     var body: some View {
         ScrollView {
@@ -58,6 +61,7 @@ struct SettingsView: View {
                 AppearanceCard(model: model)
                 KnowledgeCard(model: model)
                 ScreenShareCard()
+                UpdatesCard(updater: updater)
             }
             .padding(.horizontal, 22)
             .padding(.top, 48) // clears the window buttons
@@ -1005,6 +1009,27 @@ private struct ScreenShareCard: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15)))
                 }
             }
+        }
+    }
+}
+
+// MARK: - Updates
+
+private struct UpdatesCard: View {
+    @ObservedObject var updater: AppUpdater
+
+    var body: some View {
+        SettingsCard(icon: "arrow.down.circle.fill", title: L("Обновления"),
+                     subtitle: L("Версия %@", AppUpdater.currentVersion)) {
+            Toggle(isOn: $updater.automaticallyChecks) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L("Проверять обновления автоматически"))
+                    Text(L("При запуске и раз в день; перед установкой приложение спросит")).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Button(L("Проверить обновления…")) { updater.checkForUpdates() }
+                .buttonStyle(.quiet)
+                .disabled(!updater.canCheckForUpdates)
         }
     }
 }

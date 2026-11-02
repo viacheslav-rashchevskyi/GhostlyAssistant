@@ -107,6 +107,11 @@ GhostlyAssistant — vendor-agnostic: ответы строит выбранна
 
 Дальше — раздел [«Первый запуск»](#первый-запуск).
 
+Обновления ставятся из самого приложения. Оно проверяет их при запуске и раз в день; когда выходит новая версия,
+появляется окно с описанием изменений и кнопками **«Установить»**, **«Напомнить позже»** и **«Пропустить эту
+версию»**. Проверить вручную — иконка в строке меню → **«Проверить обновления…»** или настройки → **«Обновления»**.
+Версии до 1.3.0 включительно обновляться не умеют — следующий релиз один раз поставьте из DMG.
+
 ## Сборка
 
 Нужны macOS 26+, Xcode 26+ и [XcodeGen](https://github.com/yonaskolb/XcodeGen).
@@ -129,6 +134,26 @@ open build/Build/Products/Release/GhostlyAssistant.app
 ```bash
 swift test --package-path Packages/AssistantCore
 ```
+
+### Публикация релиза
+
+Обновления идут через [Sparkle](https://sparkle-project.org). Приложение читает
+`https://github.com/viacheslav-rashchevskyi/GhostlyAssistant/releases/latest/download/appcast.xml`, а каждое
+обновление подписано ключом EdDSA, открытая часть которого — `SUPublicEDKey` в `App/Info.plist`. Закрытая часть
+хранится в Связке ключей Mac, с которого публикуются релизы; сохраните её копию
+(`build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x <файл>`, восстановить — `-f <файл>`) — без неё
+установленные приложения не примут новые обновления.
+
+1. Поднимите `CFBundleShortVersionString` и `CFBundleVersion` в `App/Info.plist`. Sparkle сравнивает
+   `CFBundleVersion`, поэтому он должен расти с каждым релизом.
+2. Соберите Release-приложение (команда выше) и DMG: `scripts/make-dmg.sh`.
+3. Создайте GitHub-релиз `v<версия>` с описанием как обычно, под заголовком `## What's changed`.
+4. `scripts/publish-update.sh` берёт этот раздел из релиза, подписывает DMG, пишет appcast и выкладывает оба файла
+   в релиз. Можно передать файл с описанием вместо текста релиза и `--no-upload`, чтобы только записать
+   `build/updates/appcast.xml`.
+
+Чтобы проверить обновление локально, раздайте тестовый appcast и направьте на него старую сборку:
+`GHOSTLY_UPDATE_FEED=http://localhost:8765/appcast.xml`.
 
 ## Первый запуск
 
