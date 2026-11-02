@@ -762,7 +762,42 @@ private struct SpeechCard: View {
             Divider().opacity(0.3)
             LanguageRow(icon: "mic.fill", title: L("Ваш голос"),
                         hint: L("Вопросы, которые вы задаёте кнопкой микрофона"), selection: $model.micLanguage)
+            Divider().opacity(0.3)
+            PauseRow(seconds: $model.silenceDelay)
             Text(L("Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// How long Whisper waits for the speaker to go quiet before transcribing the phrase.
+private struct PauseRow: View {
+    @Binding var seconds: Double
+
+    private var label: String {
+        let value = String(format: "%.1f", seconds)
+        return L("%@ с", Loc.language == .ru ? value.replacingOccurrences(of: ".", with: ",") : value)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: "pause.circle.fill")
+                    .foregroundStyle(accent)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L("Пауза перед распознаванием"))
+                    Text(L("Сколько ждать тишины, прежде чем считать фразу законченной"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(label).font(.body.monospacedDigit())
+            }
+            Slider(value: $seconds, in: 0.5...3, step: 0.1)
+                .tint(Theme.accent)
+            Text(L("Больше — собеседника реже обрывает на запинках и «э-э», но ответ приходит позже."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -44,6 +44,11 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
         Self.log.info("audio capture started")
     }
 
+    /// Seconds of quiet after which the speaker counts as finished; applied on the audio queue.
+    func setMinSilence(_ seconds: TimeInterval) {
+        queue.async { self.segmenter.setMinSilence(seconds) }
+    }
+
     func stop() async {
         try? await stream?.stopCapture()
         stream = nil
