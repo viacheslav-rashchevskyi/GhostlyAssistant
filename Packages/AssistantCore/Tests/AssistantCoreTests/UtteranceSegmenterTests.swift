@@ -64,3 +64,16 @@ extension Array {
     #expect(out.count == 1)
     #expect(out[0].samples.count < 16_000) // only the speech after the discard
 }
+
+@Test func longerMinSilenceKeepsHesitationInOneUtterance() {
+    let audio = speech(1) + silence(1) + speech(1) + silence(1.6)
+    #expect(UtteranceSegmenter().append(audio, at: .now).count == 2)
+    #expect(UtteranceSegmenter(minSilence: 1.5).append(audio, at: .now).count == 1)
+}
+
+@Test func minSilenceCanChangeWhileRunning() {
+    let s = UtteranceSegmenter()
+    s.setMinSilence(1.5)
+    #expect(s.append(speech(1) + silence(1), at: .now).isEmpty)
+    #expect(s.append(speech(1) + silence(1.6), at: .now).count == 1)
+}

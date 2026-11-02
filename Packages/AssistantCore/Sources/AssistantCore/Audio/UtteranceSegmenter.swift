@@ -13,8 +13,9 @@ public struct Utterance: Sendable, Equatable {
 /// Splits a continuous 16 kHz mono stream into utterances using frame RMS and trailing silence.
 public final class UtteranceSegmenter {
     private let frameSize: Int
+    private let frameDuration: TimeInterval
     private let speechThreshold: Float
-    private let minSilenceFrames: Int
+    private var minSilenceFrames: Int
     private let minSpeechFrames: Int
     private let maxSamples: Int
 
@@ -33,10 +34,16 @@ public final class UtteranceSegmenter {
         maxUtterance: TimeInterval = 15
     ) {
         frameSize = Int(sampleRate * frameDuration)
+        self.frameDuration = frameDuration
         self.speechThreshold = speechThreshold
         minSilenceFrames = Int((minSilence / frameDuration).rounded(.up))
         minSpeechFrames = Int((minSpeech / frameDuration).rounded(.up))
         maxSamples = Int(sampleRate * maxUtterance)
+    }
+
+    /// Trailing silence that ends an utterance; longer keeps a speaker's hesitations in one phrase.
+    public func setMinSilence(_ seconds: TimeInterval) {
+        minSilenceFrames = Int((seconds / frameDuration).rounded(.up))
     }
 
     public func append(_ samples: [Float], at time: Date) -> [Utterance] {

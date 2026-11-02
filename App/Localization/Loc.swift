@@ -208,6 +208,11 @@ enum Loc {
         "Что слушает Whisper из звука звонка": "What Whisper hears from the call audio",
         "Ваш голос": "Your voice",
         "Вопросы, которые вы задаёте кнопкой микрофона": "Questions you ask with the mic button",
+        "Пауза перед распознаванием": "Pause before transcribing",
+        "Сколько ждать тишины, прежде чем считать фразу законченной": "How long to wait in silence before a phrase counts as finished",
+        "Больше — собеседника реже обрывает на запинках и «э-э», но ответ приходит позже.":
+            "Longer means fewer cut-offs when someone hesitates or says \"um\", but answers arrive later.",
+        "%@ с": "%@ s",
         "Точно выбранный язык распознаётся быстрее и надёжнее, чем автоопределение. Ответ всегда приходит на языке вопроса.":
             "A fixed language is recognized faster and more reliably than auto-detect. Answers always come in the question's language.",
         "Автоопределение": "Auto-detect",
