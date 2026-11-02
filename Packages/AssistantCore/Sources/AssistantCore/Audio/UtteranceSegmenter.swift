@@ -52,6 +52,12 @@ public final class UtteranceSegmenter {
         return out
     }
 
+    /// Forgets buffered audio and any unfinished utterance, e.g. when listening is paused.
+    public func discard() {
+        pending = []
+        reset()
+    }
+
     private func process(_ frame: ArraySlice<Float>, at time: Date) -> Utterance? {
         let isSpeech = Self.rms(frame) > speechThreshold
         guard inUtterance else {

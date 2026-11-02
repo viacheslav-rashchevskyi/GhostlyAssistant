@@ -47,6 +47,7 @@ GhostlyAssistant is vendor-agnostic: answers come from the language model you ch
 - **Light and dark themes** — minimal, no glass; or follow the system.
 - **Live chat** with "Recognizing → Thinking → Answering" stages, and answer latency.
 - **Answer a skipped line** — if the assistant decided a line wasn't a question, answer it with a click or `⌥⌘A`.
+- **Pause listening** — click the "Listening" pill in the chat header (or use the menu bar) to stop sending call audio to Whisper; your own questions still work.
 - **Ask your own question** — typed or spoken into the microphone (the 🎤 button, transcribed by the same Whisper).
 - **Knowledge base** — a small one goes into the context whole, a large one is searched with tools (BM25 + opening PDF pages).
 - **Model choice** — for Claude the list comes from the Models API for your key.

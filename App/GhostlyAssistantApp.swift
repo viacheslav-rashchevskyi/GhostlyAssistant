@@ -21,6 +21,8 @@ private struct MenuContent: View {
     var body: some View {
         Button(model.isCardVisible ? L("Скрыть окно") : L("Показать окно")) { appDelegate.toggleCard() }
             .keyboardShortcut("h", modifiers: [.option, .command]) // also registered globally by HotKey
+        Button(model.listeningPaused ? L("Возобновить прослушивание") : L("Приостановить прослушивание")) { model.toggleListening() }
+            .disabled(model.status != .ready)
         Button(L("Настройки…")) { appDelegate.openSettings() }
             .keyboardShortcut(",", modifiers: .command)
         Button(L("Мастер настройки…")) { appDelegate.openOnboarding(again: true) }

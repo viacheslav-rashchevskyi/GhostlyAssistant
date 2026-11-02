@@ -55,3 +55,12 @@ extension Array {
     let out = s.append(silence(0.8), at: t0 + 1)
     #expect(out.first?.endedAt == t0 + 1)
 }
+
+@Test func discardDropsUnfinishedSpeech() {
+    let s = UtteranceSegmenter()
+    #expect(s.append(speech(1), at: .now).isEmpty)
+    s.discard()
+    let out = s.append(silence(0.2) + speech(0.5) + silence(0.8), at: .now)
+    #expect(out.count == 1)
+    #expect(out[0].samples.count < 16_000) // only the speech after the discard
+}
