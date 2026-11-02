@@ -55,3 +55,16 @@ extension Array {
     let out = s.append(silence(0.8), at: t0 + 1)
     #expect(out.first?.endedAt == t0 + 1)
 }
+
+@Test func longerMinSilenceKeepsHesitationInOneUtterance() {
+    let audio = speech(1) + silence(1) + speech(1) + silence(1.6)
+    #expect(UtteranceSegmenter().append(audio, at: .now).count == 2)
+    #expect(UtteranceSegmenter(minSilence: 1.5).append(audio, at: .now).count == 1)
+}
+
+@Test func minSilenceCanChangeWhileRunning() {
+    let s = UtteranceSegmenter()
+    s.setMinSilence(1.5)
+    #expect(s.append(speech(1) + silence(1), at: .now).isEmpty)
+    #expect(s.append(speech(1) + silence(1.6), at: .now).count == 1)
+}

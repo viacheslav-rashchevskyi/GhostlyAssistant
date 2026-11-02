@@ -136,6 +136,13 @@ final class AppModel: ObservableObject {
     @Published var micLanguage: SpeechLanguage = AppModel.storedLanguage("micLanguage", default: .ru) {
         didSet { UserDefaults.standard.set(micLanguage.rawValue, forKey: "micLanguage") }
     }
+    /// How long the call must stay quiet before a phrase goes to Whisper, so hesitations don't split it.
+    @Published var silenceDelay: Double = UserDefaults.standard.object(forKey: "silenceDelay") as? Double ?? 1.5 {
+        didSet {
+            UserDefaults.standard.set(silenceDelay, forKey: "silenceDelay")
+            capture.setMinSilence(silenceDelay)
+        }
+    }
 
     private static let log = Logger(subsystem: "local.ghostlyassistant.app", category: "app")
     private let keychain = KeychainStore()
@@ -205,6 +212,7 @@ final class AppModel: ObservableObject {
             Task { await refreshClaudeModels() }
             Task { await reloadKnowledge() }
             if !captureRunning {
+                capture.setMinSilence(silenceDelay)
                 capture.onLevel = { [weak self] present in
                     Task { @MainActor in self?.audioPresent = present }
                 }
